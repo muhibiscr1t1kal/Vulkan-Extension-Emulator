@@ -25,9 +25,9 @@ Also This Mod Has A Fallback System According To Your Graphics Driver Abilities.
 This Mod Is Also Supported With Using Sodium With Vulkan API. So It's Recommended To Use It With [Sodium](https://modrinth.com/mod/sodium) For A Overall Stable Experience. More Performance Mods Can Be Added For Further Better Experience.
 
 **🌅 Shaders Support**
-VEE Fully Supports Shaders. Download [Vitrail Shaders](https://modrinth.com/project/oSIKhgz3) And Sodium And Use Shaders. But If You Occur Any Graphical Issues Or Bugs, That Could Be Caused By Device GPU Weakness. Although It's Not Supposed To Happen.
+VEE Fully Supports Shaders. Download [Vitrail Shaders](https://modrinth.com/project/oSIKhgz3) And Sodium And Use Shaders. But If You Encounter Any Graphical Issues Or Bugs, That Could Be Caused By Device GPU Weakness. Although It's Not Supposed To Happen.
 
 **✅ Permissions**
-The Mod Is Mainly Aimed To Help Players, So It's Open-Source And Licensed MIT.
+The Mod Is Mainly Made To Help Players, So It's Open-Source And Licensed MIT.
 
 Thank You And Enjoy!
