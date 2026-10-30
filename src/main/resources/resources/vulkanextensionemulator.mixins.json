@@ -1,0 +1,35 @@
+{
+  "required": true,
+  "package": "com.muhibiscr1t1kal.vulkanextensionemulator.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "VulkanBackendMixin",
+    "VulkanPhysicalDeviceMixin",
+    "VulkanFeatureMixin",
+    "Sync2RedirectMixin",
+    "Sync2SurfaceMixin",
+    "Sync2RenderPassMixin",
+    "Sync2SubmitMixin",
+    "BindGroupLayoutMixin",
+    "PushDescriptorMixin",
+    "DescriptorLifecycleMixin",
+    "DeviceInitMixin",
+    "DynamicRenderingMixin",
+    "PipelineRenderingMixin",
+    "TextureViewLifecycleMixin",
+    "Core12RedirectMixin",
+    "QueryPoolMixin",
+    "RenderPassQueryMixin",
+    "MultiDrawMixin",
+    "BufferLifecycleMixin",
+    "CommandRecordMixin",
+    "MetricsMixin",
+    "SurfaceRecordMixin",
+    "FrameProfileMixin",
+    "GpuWaitProfileMixin",
+    "PipelineDepthMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
