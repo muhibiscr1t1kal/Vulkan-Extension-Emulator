@@ -9,6 +9,8 @@ In The Technical Side, Nothing Much Complex. This Mod Uses Virtual Software Emul
 - VK_KHR_push_descriptor
 - VK_EXT_vertex_attribute_divisor
 - VK_EXT_multi_draw
+- fillModeNonSolid
+- Other Vulkan Features
 - Vulkan 1.2 Emulation
 
 Also This Mod Has A Fallback System According To Your Graphics Driver Abilities. It Won't Emulate The Extensions Or Features That Your Driver Is Capable Of. It Will Only Emulate The Ones Missing Or Not Present. Which Means It Doesn't Stop Your GPU And Driver From Using It's Own Capabilities.
