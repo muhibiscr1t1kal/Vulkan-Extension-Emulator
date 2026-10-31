@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "vulkanextensionemulator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "name": "Vulkan Extension Emulator",
   "description": "A Mod That Allows The Usage Of Vulkan API On Devices With Unsupported Hardware By Emulating The Missing Vulkan Extensions.",
   "authors": [
