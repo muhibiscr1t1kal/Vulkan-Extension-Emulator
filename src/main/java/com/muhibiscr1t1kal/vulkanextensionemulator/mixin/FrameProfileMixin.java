@@ -13,7 +13,7 @@ public abstract class FrameProfileMixin {
 
    @Inject(
       method = {"acquireNextTexture"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$beginFrame(CallbackInfo ci) {
@@ -23,7 +23,7 @@ public abstract class FrameProfileMixin {
 
    @Inject(
       method = {"acquireNextTexture"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$endAcquire(CallbackInfo ci) {
@@ -32,7 +32,7 @@ public abstract class FrameProfileMixin {
 
    @Inject(
       method = {"present"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$endFrame(CallbackInfo ci) {

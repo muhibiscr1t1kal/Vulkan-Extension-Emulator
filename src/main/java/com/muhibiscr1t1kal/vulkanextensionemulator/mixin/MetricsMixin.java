@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MetricsMixin {
    @Inject(
       method = {"present"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$frame(CallbackInfo ci) {

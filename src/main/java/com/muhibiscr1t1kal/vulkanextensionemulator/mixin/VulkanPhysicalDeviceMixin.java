@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class VulkanPhysicalDeviceMixin {
    @Inject(
       method = {"getMissingExtensions"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       cancellable = true,
       require = 0
    )
@@ -53,7 +53,7 @@ public abstract class VulkanPhysicalDeviceMixin {
 
    @Inject(
       method = {"hasDeviceExtension"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       cancellable = true,
       require = 0
    )

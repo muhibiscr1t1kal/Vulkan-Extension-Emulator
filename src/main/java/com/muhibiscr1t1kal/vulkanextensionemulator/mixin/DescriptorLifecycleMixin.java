@@ -19,10 +19,11 @@ public abstract class DescriptorLifecycleMixin {
 
    @Inject(
       method = {"submit"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$advancePools(CallbackInfo ci) {
+      DynamicRenderingEmulation.noteSubmit(this.currentSubmitIndex);
       if (Emulation.isExtensionEmulated("VK_KHR_push_descriptor")) {
          PushDescriptorEmulation.beginSubmit(this.currentSubmitIndex, this.completedSubmitIndex);
       }
@@ -31,7 +32,7 @@ public abstract class DescriptorLifecycleMixin {
 
    @Inject(
       method = {"submitRenderPass"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$advancePoolsRenderPass(CallbackInfo ci) {
@@ -43,7 +44,7 @@ public abstract class DescriptorLifecycleMixin {
 
    @Inject(
       method = {"submit"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$drainDeferredDestroys(CallbackInfo ci) {

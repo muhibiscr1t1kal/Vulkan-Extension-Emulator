@@ -35,7 +35,7 @@ public abstract class PipelineDepthMixin {
 
    @Inject(
       method = {"<init>"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$deepenRings(VulkanDevice device, CallbackInfo ci) {
@@ -81,7 +81,7 @@ public abstract class PipelineDepthMixin {
 
    @Inject(
       method = {"currentCommandPool"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       cancellable = true,
       require = 0
    )
@@ -94,7 +94,7 @@ public abstract class PipelineDepthMixin {
 
    @Inject(
       method = {"destroy"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$destroyExtraPools(CallbackInfo ci) {

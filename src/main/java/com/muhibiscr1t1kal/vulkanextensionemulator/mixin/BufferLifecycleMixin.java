@@ -7,17 +7,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(VulkanGpuBuffer.Direct.class)
+@Mixin({VulkanGpuBuffer.Direct.class})
 public abstract class BufferLifecycleMixin {
-
-    @Inject(
-        method = "destroy",
-        at = @At("HEAD"),
-        require = 1
-    )
-    private void vulkanextensionemulator$evictDescriptors(CallbackInfo ci) {
-        VulkanGpuBuffer buffer = (VulkanGpuBuffer) (Object) this;
-
-        PushDescriptorEmulation.onResourceDestroyed(buffer.vkBuffer());
-    }
+   @Inject(
+      method = {"destroy"},
+      at = {@At("HEAD")},
+      require = 0
+   )
+   private void vulkanextensionemulator$evictDescriptors(CallbackInfo ci) {
+      VulkanGpuBuffer vulkangpubuffer = (VulkanGpuBuffer) (Object) this;
+      PushDescriptorEmulation.onResourceDestroyed(vulkangpubuffer.vkBuffer());
+   }
 }

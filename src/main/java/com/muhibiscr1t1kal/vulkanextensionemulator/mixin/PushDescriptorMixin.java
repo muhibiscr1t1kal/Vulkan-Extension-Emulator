@@ -2,7 +2,9 @@ package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
 import com.mojang.blaze3d.vulkan.VulkanRenderPass;
 import com.mojang.blaze3d.vulkan.VulkanRenderPipeline;
+import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Emulation;
+import com.muhibiscr1t1kal.vulkanextensionemulator.vk.NativeCaps;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PushDescriptorEmulation;
 import org.lwjgl.vulkan.KHRPushDescriptor;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -14,29 +16,64 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin({VulkanRenderPass.class})
 public abstract class PushDescriptorMixin {
-   @Shadow
-   protected VulkanRenderPipeline pipeline;
+    @Shadow
+    protected VulkanRenderPipeline pipeline;
 
-   @Redirect(
-      method = {"pushDescriptors"},
-      at = @At(
-   value = "INVOKE",
-   target = "Lorg/lwjgl/vulkan/KHRPushDescriptor;vkCmdPushDescriptorSetKHR(Lorg/lwjgl/vulkan/VkCommandBuffer;IJILorg/lwjgl/vulkan/VkWriteDescriptorSet$Buffer;)V"
-),
-      require = 0
-   )
-   private void vulkanextensionemulator$pushDescriptors(VkCommandBuffer cmd, int bindPoint, long pipelineLayout, int set, VkWriteDescriptorSet.Buffer writes) {
-      if (cmd != null && cmd.getDevice() != null && cmd.getDevice().getCapabilities().vkCmdPushDescriptorSetKHR != 0L) {
-         KHRPushDescriptor.vkCmdPushDescriptorSetKHR(cmd, bindPoint, pipelineLayout, set, writes);
-      } else if (!Emulation.isExtensionEmulated("VK_KHR_push_descriptor")) {
-         KHRPushDescriptor.vkCmdPushDescriptorSetKHR(cmd, bindPoint, pipelineLayout, set, writes);
-      } else {
-         long i = 0L;
-         if (this.pipeline != null && this.pipeline.layout() != null) {
-            i = this.pipeline.layout().handle();
-         }
+    @Redirect(
+        method = {"pushDescriptors"},
+        at = @At(
+            value = "INVOKE",
+            target = "Lorg/lwjgl/vulkan/KHRPushDescriptor;vkCmdPushDescriptorSetKHR(Lorg/lwjgl/vulkan/VkCommandBuffer;IJILorg/lwjgl/vulkan/VkWriteDescriptorSet$Buffer;)V"
+        ),
+        require = 0
+    )
+    private void vulkanextensionemulator$pushDescriptors(
+        VkCommandBuffer cmd,
+        int bindPoint,
+        long pipelineLayout,
+        int set,
+        VkWriteDescriptorSet.Buffer writes
+    ) {
+        if (VulkanExtensionEmulator.forcePushEmulation()) {
+            Emulation.markExtension("VK_KHR_push_descriptor");
+            this.vulkanextensionemulator$emulate(
+                cmd, bindPoint, pipelineLayout, set, writes
+            );
+        } else if (NativeCaps.pushDescriptor) {
+            KHRPushDescriptor.vkCmdPushDescriptorSetKHR(
+                cmd, bindPoint, pipelineLayout, set, writes
+            );
+        } else if (!Emulation.isExtensionEmulated("VK_KHR_push_descriptor")) {
+            KHRPushDescriptor.vkCmdPushDescriptorSetKHR(
+                cmd, bindPoint, pipelineLayout, set, writes
+            );
+        } else {
+            this.vulkanextensionemulator$emulate(
+                cmd, bindPoint, pipelineLayout, set, writes
+            );
+        }
+    }
 
-         PushDescriptorEmulation.pushDescriptorSet(cmd, bindPoint, pipelineLayout, set, writes, i);
-      }
-   }
+    private void vulkanextensionemulator$emulate(
+        VkCommandBuffer cmd,
+        int bindPoint,
+        long pipelineLayout,
+        int set,
+        VkWriteDescriptorSet.Buffer writes
+    ) {
+        long descriptorSetLayout = 0L;
+
+        if (this.pipeline != null && this.pipeline.layout() != null) {
+            descriptorSetLayout = this.pipeline.layout().handle();
+        }
+
+        PushDescriptorEmulation.pushDescriptorSet(
+            cmd,
+            bindPoint,
+            pipelineLayout,
+            set,
+            writes,
+            descriptorSetLayout
+        );
+    }
 }

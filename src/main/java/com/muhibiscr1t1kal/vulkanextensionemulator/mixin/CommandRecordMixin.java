@@ -8,8 +8,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin({VulkanCommandEncoder.class})
+@Mixin(VulkanCommandEncoder.class)
 public abstract class CommandRecordMixin {
+
    @Inject(
       method = {"writeToBuffer"},
       at = @At("HEAD"),
@@ -47,7 +48,9 @@ public abstract class CommandRecordMixin {
    }
 
    @Inject(
-      method = {"copyTextureToBuffer(Lcom/mojang/blaze3d/textures/GpuTexture;Lcom/mojang/blaze3d/buffers/GpuBuffer;JLjava/lang/Runnable;I)V"},
+      method = {
+         "copyTextureToBuffer(Lcom/mojang/blaze3d/textures/GpuTexture;Lcom/mojang/blaze3d/buffers/GpuBuffer;JLjava/lang/Runnable;I)V"
+      },
       at = @At("HEAD"),
       require = 0
    )
@@ -56,7 +59,9 @@ public abstract class CommandRecordMixin {
    }
 
    @Inject(
-      method = {"copyTextureToBuffer(Lcom/mojang/blaze3d/textures/GpuTexture;Lcom/mojang/blaze3d/buffers/GpuBuffer;JLjava/lang/Runnable;IIIII)V"},
+      method = {
+         "copyTextureToBuffer(Lcom/mojang/blaze3d/textures/GpuTexture;Lcom/mojang/blaze3d/buffers/GpuBuffer;JLjava/lang/Runnable;IIIII)V"
+      },
       at = @At("HEAD"),
       require = 0
    )
@@ -92,7 +97,9 @@ public abstract class CommandRecordMixin {
    }
 
    @Inject(
-      method = {"clearColorAndDepthTextures(Lcom/mojang/blaze3d/textures/GpuTexture;Lorg/joml/Vector4fc;Lcom/mojang/blaze3d/textures/GpuTexture;D)V"},
+      method = {
+         "clearColorAndDepthTextures(Lcom/mojang/blaze3d/textures/GpuTexture;Lorg/joml/Vector4fc;Lcom/mojang/blaze3d/textures/GpuTexture;D)V"
+      },
       at = @At("HEAD"),
       require = 0
    )
@@ -101,7 +108,9 @@ public abstract class CommandRecordMixin {
    }
 
    @Inject(
-      method = {"clearColorAndDepthTextures(Lcom/mojang/blaze3d/textures/GpuTexture;Lorg/joml/Vector4fc;Lcom/mojang/blaze3d/textures/GpuTexture;DIIII)V"},
+      method = {
+         "clearColorAndDepthTextures(Lcom/mojang/blaze3d/textures/GpuTexture;Lorg/joml/Vector4fc;Lcom/mojang/blaze3d/textures/GpuTexture;DIIII)V"
+      },
       at = @At("HEAD"),
       require = 0
    )
@@ -132,7 +141,9 @@ public abstract class CommandRecordMixin {
       at = @At("HEAD"),
       require = 0
    )
-   private void vulkanextensionemulator$w12(CallbackInfoReturnable cir) {
+   private void vulkanextensionemulator$w12(
+      CallbackInfoReturnable<?> cir
+   ) {
       BarrierCoalescer.commandRecorded();
    }
 

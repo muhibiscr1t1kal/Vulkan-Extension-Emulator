@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class DynamicRenderingMixin {
    @Inject(
       method = {"createRenderPass"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$stashDescriptor(RenderPassDescriptor descriptor, CallbackInfoReturnable cir) {

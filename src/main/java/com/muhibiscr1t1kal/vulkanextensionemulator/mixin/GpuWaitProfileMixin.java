@@ -13,7 +13,7 @@ public abstract class GpuWaitProfileMixin {
 
    @Inject(
       method = {"awaitSubmitCompletion"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$beginWait(long submitIndex, long timeout, CallbackInfoReturnable cir) {
@@ -22,7 +22,7 @@ public abstract class GpuWaitProfileMixin {
 
    @Inject(
       method = {"awaitSubmitCompletion"},
-      at = @At("RETURN"),
+      at = {@At("RETURN")},
       require = 0
    )
    private void vulkanextensionemulator$endWait(long submitIndex, long timeout, CallbackInfoReturnable cir) {

@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class SurfaceRecordMixin {
    @Inject(
       method = {"blitFromTexture"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$blitRecorded(CallbackInfo ci) {
@@ -22,7 +22,7 @@ public abstract class SurfaceRecordMixin {
 
    @Inject(
       method = {"acquireNextTexture"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$acquireRecorded(CallbackInfo ci) {
@@ -31,7 +31,7 @@ public abstract class SurfaceRecordMixin {
 
    @Inject(
       method = {"present"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$presentRecorded(CallbackInfo ci) {
@@ -40,7 +40,7 @@ public abstract class SurfaceRecordMixin {
 
    @Inject(
       method = {"configure"},
-      at = @At("HEAD"),
+      at = {@At("HEAD")},
       require = 0
    )
    private void vulkanextensionemulator$swapchainReset(CallbackInfo ci) {
