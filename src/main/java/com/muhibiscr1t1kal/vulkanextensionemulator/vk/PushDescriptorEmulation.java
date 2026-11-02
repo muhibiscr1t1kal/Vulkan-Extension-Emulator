@@ -19,6 +19,11 @@ public final class PushDescriptorEmulation {
    private static boolean nativeAvailable;
    private static final DescriptorCache cache = new DescriptorCache();
    private static final Map allocatableLayouts = new ConcurrentHashMap();
+   private static final Map layoutByPipelineAndSet = new ConcurrentHashMap();
+   private static long skippedPushes;
+   private static long lastGeneration;
+   private static long nativeFallbacks;
+   private static int skippedLogged;
    private static long pushCount;
    private static boolean warnedNoPool;
    private static boolean warnedAllocFailure;
@@ -49,6 +54,7 @@ public final class PushDescriptorEmulation {
 
    public static void init(VkDevice vkDevice) {
       device = vkDevice;
+      lastGeneration = 0L;
       if (vkDevice != null) {
          nativeAvailable = vkDevice.getCapabilities().vkCmdPushDescriptorSetKHR != 0L;
       }
@@ -62,6 +68,9 @@ public final class PushDescriptorEmulation {
          if (pools == null) {
             pools = new DescriptorPoolManager(vkDevice);
             VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] Descriptor pool manager initialised");
+            if (VulkanExtensionEmulator.config().prewarmDescriptorPools) {
+               pools.warm(2, 1);
+            }
          }
 
       }
@@ -107,81 +116,65 @@ public final class PushDescriptorEmulation {
 
    public static void beginSubmit(long submitIndex, long completedIndex) {
       if (pools != null) {
-         boolean flag = pools.currentSubmitIndex() != submitIndex;
          pools.beginSubmit(submitIndex, completedIndex);
-         if (flag) {
+         long gen = pools.currentGeneration();
+         if (gen != lastGeneration) {
+            lastGeneration = gen;
             cache.invalidate();
-            clearBound();
          }
+
+         clearBound();
       }
 
    }
 
    public static boolean pushDescriptorSet(VkCommandBuffer cmd, int bindPoint, long pipelineLayout, int set, VkWriteDescriptorSet.Buffer writes, long setLayout) {
       if (cmd != null && writes != null) {
-         long i = System.nanoTime();
+         if (writes.remaining() == 0) {
+            return true;
+         } else {
+            long i = System.nanoTime();
 
-         try {
-            boolean var40;
-            if (pools == null) {
-               if (!warnedNoPool) {
-                  warnedNoPool = true;
-                  VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Push descriptor called before pool init — descriptors will be missing this frame");
-               }
+            boolean var11;
+            try {
+               if (pools != null) {
+                  if (setLayout == 0L) {
+                     setLayout = (Long)layoutByPipelineAndSet.get(pipelineLayout * 31L + (long)set);
+                  }
 
-               var40 = false;
-               return var40;
-            } else if (setLayout != 0L) {
-               long j = VulkanExtensionEmulator.config().cacheDescriptors ? cache.lookup(setLayout, writes) : 0L;
-               boolean var44;
-               if (j != 0L) {
-                  if (boundSet == j && boundSlot == set && boundLayout == pipelineLayout && boundCmd == cmd.address()) {
-                     ++redundantBindsSkipped;
-                     ++pushCount;
-                     boolean var43 = true;
-                     return var43;
-                  } else {
-                     MemoryStack memorystack1 = MemoryStack.stackPush();
+                  if (setLayout == 0L) {
+                     ++skippedPushes;
+                     if (!warnedNoLayout) {
+                        warnedNoLayout = true;
+                        VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Push descriptor with non-empty writes but no descriptor-set-layout (bindPoint={}, set={}, pipelineLayout=0x{}, writes={}); draw will use stale bindings", new Object[]{bindPoint, set, Long.toHexString(pipelineLayout), writes.remaining()});
+                     }
 
-                     boolean flag;
-                     try {
-                        LongBuffer longbuffer = memorystack1.longs(j);
-                        VK10.vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout, set, longbuffer, (IntBuffer)null);
-                        noteBound(cmd, pipelineLayout, set, j);
-                        ++pushCount;
-                        flag = true;
-                     } catch (Throwable var36) {
-                        if (memorystack1 != null) {
-                           try {
-                              memorystack1.close();
-                           } catch (Throwable var35) {
-                              var36.addSuppressed(var35);
-                           }
+                     var11 = false;
+                     return var11;
+                  }
+
+                  long j = VulkanExtensionEmulator.config().cacheDescriptors ? cache.lookup(setLayout, writes) : 0L;
+                  boolean var43;
+                  if (j == 0L) {
+                     long k = pools.allocate(setLayout);
+                     if (k == 0L) {
+                        if (!warnedAllocFailure) {
+                           warnedAllocFailure = true;
+                           VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Descriptor allocation FAILED (pool exhausted or driver error); skipping push. Affected object will be invisible this frame. bindPoint={} set={} writes={}", new Object[]{bindPoint, set, writes.remaining()});
                         }
 
-                        throw var36;
+                        ++allocFailures;
+                        ++skippedPushes;
+                        clearBound();
+                        if (skippedLogged < 3) {
+                           ++skippedLogged;
+                           VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Skipping push (bindPoint={}, set={}, writes={}); draw will use stale bindings this frame. Vanilla terrain sections may disappear.", new Object[]{bindPoint, set, writes.remaining()});
+                        }
+
+                        var43 = false;
+                        return var43;
                      }
 
-                     if (memorystack1 != null) {
-                        memorystack1.close();
-                     }
-
-                     var44 = flag;
-                     return var44;
-                  }
-               } else {
-                  long k = pools.allocate(setLayout);
-                  if (k == 0L) {
-                     if (!warnedAllocFailure) {
-                        warnedAllocFailure = true;
-                        VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Descriptor allocation FAILED (pool exhausted or driver error); skipping push. Affected object will be invisible this frame. bindPoint={} set={} writes={}", new Object[]{bindPoint, set, writes.remaining()});
-                     }
-
-                     ++allocFailures;
-                     clearBound();
-                     var44 = false;
-                     return var44;
-                  } else {
                      try {
                         MemoryStack memorystack = MemoryStack.stackPush();
 
@@ -189,8 +182,26 @@ public final class PushDescriptorEmulation {
                         try {
                            int l = writes.remaining();
                            VkWriteDescriptorSet.Buffer buffer = VkWriteDescriptorSet.calloc(l, memorystack);
+                           int i1 = 0;
 
-                           for(int i1 = 0; i1 < l; ++i1) {
+                           while(true) {
+                              if (i1 >= l) {
+                                 Trace.mark("vkUpdateDescriptorSets", "writes=" + l);
+                                 VK10.vkUpdateDescriptorSets(device, buffer, (VkCopyDescriptorSet.Buffer)null);
+                                 LongBuffer longbuffer1 = memorystack.longs(k);
+                                 Trace.mark("vkCmdBindDescriptorSets", "set=" + set);
+                                 VK10.vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout, set, longbuffer1, (IntBuffer)null);
+                                 if (VulkanExtensionEmulator.config().cacheDescriptors) {
+                                    cache.store(setLayout, writes, k);
+                                 }
+
+                                 noteBound(cmd, pipelineLayout, set, k);
+                                 layoutByPipelineAndSet.put(pipelineLayout * 31L + (long)set, setLayout);
+                                 ++pushCount;
+                                 flag1 = true;
+                                 break;
+                              }
+
                               VkWriteDescriptorSet vkwritedescriptorset = (VkWriteDescriptorSet)writes.get(i1);
                               VkWriteDescriptorSet vkwritedescriptorset1 = (VkWriteDescriptorSet)buffer.get(i1);
                               vkwritedescriptorset1.sType$Default().dstSet(k).dstBinding(vkwritedescriptorset.dstBinding()).dstArrayElement(vkwritedescriptorset.dstArrayElement()).descriptorCount(vkwritedescriptorset.descriptorCount()).descriptorType(vkwritedescriptorset.descriptorType());
@@ -213,7 +224,7 @@ public final class PushDescriptorEmulation {
 
                                     for(int i4 = 0; i4 < i3; ++i4) {
                                        VkDescriptorImageInfo source = (VkDescriptorImageInfo)sourceInfo.get(i4);
-                                       ((VkDescriptorImageInfo)imageInfo.get(i4)).sampler(source.sampler()).imageView(source.imageView()).imageLayout(2);
+                                       ((VkDescriptorImageInfo)imageInfo.get(i4)).sampler(source.sampler()).imageView(source.imageView()).imageLayout(source.imageLayout());
                                     }
 
                                     vkwritedescriptorset1.pImageInfo(imageInfo);
@@ -223,20 +234,9 @@ public final class PushDescriptorEmulation {
                               if (vkwritedescriptorset.pTexelBufferView() != null) {
                                  vkwritedescriptorset1.pTexelBufferView(vkwritedescriptorset.pTexelBufferView());
                               }
-                           }
 
-                           Trace.mark("vkUpdateDescriptorSets", "writes=" + l);
-                           VK10.vkUpdateDescriptorSets(device, buffer, (VkCopyDescriptorSet.Buffer)null);
-                           LongBuffer longbuffer1 = memorystack.longs(k);
-                           Trace.mark("vkCmdBindDescriptorSets", "set=" + set);
-                           VK10.vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout, set, longbuffer1, (IntBuffer)null);
-                           if (VulkanExtensionEmulator.config().cacheDescriptors) {
-                              cache.store(setLayout, writes, k);
+                              ++i1;
                            }
-
-                           noteBound(cmd, pipelineLayout, set, k);
-                           ++pushCount;
-                           flag1 = true;
                         } catch (Throwable var37) {
                            if (memorystack != null) {
                               try {
@@ -260,28 +260,54 @@ public final class PushDescriptorEmulation {
                         return var16;
                      }
                   }
-               }
-            } else {
-               if (!warnedNoLayout) {
-                  warnedNoLayout = true;
-                  StringBuilder stringbuilder = new StringBuilder();
 
-                  for(int j1 = 0; j1 < writes.remaining(); ++j1) {
-                     if (j1 > 0) {
-                        stringbuilder.append(',');
-                     }
-
-                     stringbuilder.append(((VkWriteDescriptorSet)writes.get(j1)).descriptorType());
+                  if (boundSet == j && boundSlot == set && boundLayout == pipelineLayout && boundCmd == cmd.address()) {
+                     ++redundantBindsSkipped;
+                     ++pushCount;
+                     boolean var41 = true;
+                     return var41;
                   }
 
-                  VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] No descriptor set layout available for push emulation (bindPoint={}, set={}, writeTypes=[{}]); descriptors will be missing for this object", new Object[]{bindPoint, set, stringbuilder});
+                  MemoryStack memorystack1 = MemoryStack.stackPush();
+
+                  boolean flag;
+                  try {
+                     LongBuffer longbuffer = memorystack1.longs(j);
+                     VK10.vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout, set, longbuffer, (IntBuffer)null);
+                     noteBound(cmd, pipelineLayout, set, j);
+                     ++pushCount;
+                     flag = true;
+                  } catch (Throwable var36) {
+                     if (memorystack1 != null) {
+                        try {
+                           memorystack1.close();
+                        } catch (Throwable var35) {
+                           var36.addSuppressed(var35);
+                        }
+                     }
+
+                     throw var36;
+                  }
+
+                  if (memorystack1 != null) {
+                     memorystack1.close();
+                  }
+
+                  var43 = flag;
+                  return var43;
                }
 
-               var40 = false;
-               return var40;
+               if (!warnedNoPool) {
+                  warnedNoPool = true;
+                  VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Push descriptor called before pool init — descriptors will be missing this frame");
+               }
+
+               var11 = false;
+            } finally {
+               FrameProfiler.addEmulation(i);
             }
-         } finally {
-            FrameProfiler.addEmulation(i);
+
+            return var11;
          }
       } else {
          return false;
@@ -306,5 +332,9 @@ public final class PushDescriptorEmulation {
 
    public static DescriptorPoolManager pools() {
       return pools;
+   }
+
+   public static long skippedPushes() {
+      return skippedPushes;
    }
 }

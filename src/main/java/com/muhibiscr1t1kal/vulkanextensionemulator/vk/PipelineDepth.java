@@ -6,16 +6,66 @@ public final class PipelineDepth {
    public static final int STOCK_DEPTH = 2;
    private static int extra;
    private static boolean armed;
+   private static int degradeFrames;
+   private static int slowStreak;
 
    private PipelineDepth() {
    }
 
    public static boolean enabled() {
-      return VulkanExtensionEmulator.config().deeperPipeline;
+      if (!VulkanExtensionEmulator.config().deeperPipeline) {
+         return false;
+      } else if (VulkanExtensionEmulator.config().desktopSafeMode && VulkanExtensionEmulator.isDesktopSafeProfile()) {
+         return false;
+      } else {
+         return !VulkanExtensionEmulator.isShaderModInstalled();
+      }
    }
 
    public static int requestedExtra() {
-      return !enabled() ? 0 : Math.max(0, Math.min(VulkanExtensionEmulator.config().extraFramesInFlight, 1));
+      if (!enabled()) {
+         return 0;
+      } else {
+         return degraded() ? 0 : Math.max(0, Math.min(VulkanExtensionEmulator.config().extraFramesInFlight, 1));
+      }
+   }
+
+   public static void noteFrameTime(long ns) {
+      if (!VulkanExtensionEmulator.config().adaptiveDepth) {
+         degradeFrames = 0;
+         slowStreak = 0;
+      } else {
+         long slowNs = (long)VulkanExtensionEmulator.config().adaptiveDepthSlowMs * 1000000L;
+         if (ns >= slowNs) {
+            ++slowStreak;
+            if (slowStreak >= VulkanExtensionEmulator.config().adaptiveDepthConsecutive) {
+               if (degradeFrames == 0) {
+                  VulkanExtensionEmulator.LOGGER.warn("[Vulkan Extension Emulator] Adaptive depth: degrading to stock {} frames in flight ({} consecutive slow frames)", 2, slowStreak);
+               }
+
+               degradeFrames = VulkanExtensionEmulator.config().adaptiveDepthRecoverFrames;
+            }
+         } else {
+            slowStreak = 0;
+         }
+
+         if (degradeFrames > 0) {
+            --degradeFrames;
+            if (degradeFrames == 0) {
+               VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] Adaptive depth: restored to {} frames in flight", poolCount());
+            }
+         }
+
+      }
+   }
+
+   public static void resetAdaptive() {
+      degradeFrames = 0;
+      slowStreak = 0;
+   }
+
+   public static boolean degraded() {
+      return degradeFrames > 0;
    }
 
    public static void armRings(int i) {
@@ -32,7 +82,7 @@ public final class PipelineDepth {
    }
 
    public static long adjustWaitTarget(long waitIndex, long currentSubmitIndex) {
-      if (armed && extra > 0) {
+      if (armed && extra > 0 && !degraded()) {
          long relaxed = waitIndex - (long)extra;
          if (relaxed >= currentSubmitIndex) {
             relaxed = currentSubmitIndex - 1L;

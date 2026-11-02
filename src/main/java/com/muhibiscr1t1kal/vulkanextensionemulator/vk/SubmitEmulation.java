@@ -8,7 +8,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSynchronization2;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkCommandBufferSubmitInfo;
-import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkSemaphoreSubmitInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
@@ -24,8 +23,7 @@ public final class SubmitEmulation {
 
    public static int queueSubmit(VkQueue queue, VkSubmitInfo2.Buffer submits, long fence) {
       if (queue != null && submits != null) {
-         VkDevice vkdevice = queue.getDevice();
-         if (vkdevice != null && vkdevice.getCapabilities().vkQueueSubmit2KHR != 0L) {
+         if (NativeCaps.submit2) {
             return KHRSynchronization2.vkQueueSubmit2KHR(queue, submits, fence);
          } else {
             try {
@@ -35,9 +33,25 @@ public final class SubmitEmulation {
                try {
                   int i = submits.remaining();
                   VkSubmitInfo.Buffer buffer = VkSubmitInfo.calloc(i, memorystack);
+                  int l1 = 0;
 
-                  int l1;
-                  for(l1 = 0; l1 < i; ++l1) {
+                  while(true) {
+                     if (l1 >= i) {
+                        Trace.mark("vkQueueSubmit", "count=" + i);
+                        l1 = VK10.vkQueueSubmit(queue, buffer, fence);
+                        Trace.mark("vkQueueSubmit returned", l1);
+                        if (submitCount++ == 0L) {
+                           VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] sync2 submit emulation active (vkQueueSubmit2KHR -> vkQueueSubmit + timeline pNext)");
+                        }
+
+                        if (l1 != 0) {
+                           VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] vkQueueSubmit returned {}", l1);
+                        }
+
+                        i2 = l1;
+                        break;
+                     }
+
                      VkSubmitInfo2 vksubmitinfo2 = (VkSubmitInfo2)submits.get(l1);
                      VkSubmitInfo vksubmitinfo = ((VkSubmitInfo)buffer.get(l1)).sType$Default();
                      VkSemaphoreSubmitInfo.Buffer buffer1 = vksubmitinfo2.pWaitSemaphoreInfos();
@@ -121,30 +135,19 @@ public final class SubmitEmulation {
 
                         vksubmitinfo.pNext(vktimelinesemaphoresubmitinfo.address());
                      }
-                  }
 
-                  Trace.mark("vkQueueSubmit", "count=" + i);
-                  l1 = VK10.vkQueueSubmit(queue, buffer, fence);
-                  Trace.mark("vkQueueSubmit returned", l1);
-                  if (submitCount++ == 0L) {
-                     VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] sync2 submit emulation active (vkQueueSubmit2KHR -> vkQueueSubmit + timeline pNext)");
+                     ++l1;
                   }
-
-                  if (l1 != 0) {
-                     VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] vkQueueSubmit returned {}", l1);
-                  }
-
-                  i2 = l1;
-               } catch (Throwable var25) {
+               } catch (Throwable var24) {
                   if (memorystack != null) {
                      try {
                         memorystack.close();
-                     } catch (Throwable var24) {
-                        var25.addSuppressed(var24);
+                     } catch (Throwable var23) {
+                        var24.addSuppressed(var23);
                      }
                   }
 
-                  throw var25;
+                  throw var24;
                }
 
                if (memorystack != null) {
@@ -152,8 +155,8 @@ public final class SubmitEmulation {
                }
 
                return i2;
-            } catch (Throwable var26) {
-               VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Submit translation failed", var26);
+            } catch (Throwable var25) {
+               VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Submit translation failed", var25);
                return -13;
             }
          }

@@ -1,11 +1,11 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.vk;
 
-import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 public final class BarrierCoalescer {
    public static final int ALL_COMMANDS = 65536;
    public static final int MEMORY_RW = 98304;
+   private static boolean active;
    private static long lastCmd;
    private static int lastSrcStage;
    private static int lastDstStage;
@@ -18,12 +18,20 @@ public final class BarrierCoalescer {
    private BarrierCoalescer() {
    }
 
+   public static void arm(boolean v) {
+      active = v;
+   }
+
+   public static boolean active() {
+      return active;
+   }
+
    public static boolean enabled() {
-      return VulkanExtensionEmulator.config().coalesceBarriers;
+      return active;
    }
 
    public static boolean shouldSkip(VkCommandBuffer cmd, int srcStage, int dstStage, int srcAccess, int dstAccess, int imageCount, int bufferCount) {
-      if (!enabled()) {
+      if (!active) {
          ++issued;
          return false;
       } else if (imageCount == 0 && bufferCount == 0) {
@@ -53,12 +61,18 @@ public final class BarrierCoalescer {
    }
 
    public static void commandRecorded() {
-      barrierIsCurrent = false;
+      if (active) {
+         barrierIsCurrent = false;
+      }
+
    }
 
    public static void reset() {
-      lastCmd = 0L;
-      barrierIsCurrent = false;
+      if (active) {
+         lastCmd = 0L;
+         barrierIsCurrent = false;
+      }
+
    }
 
    public static long issuedCount() {

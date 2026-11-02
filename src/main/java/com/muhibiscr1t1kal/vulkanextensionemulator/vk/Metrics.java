@@ -13,6 +13,7 @@ public final class Metrics {
    private static long prevBarriersIssued;
    private static long prevBarriersCoalesced;
    private static long prevUnrolledDraws;
+   private static long prevSkipped;
 
    private Metrics() {
    }
@@ -50,8 +51,8 @@ public final class Metrics {
          long i3 = j1 - prevBarriersCoalesced;
          long j3 = k1 - prevUnrolledDraws;
          double d1 = i2 + j2 > 0L ? 100.0 * (double)i2 / (double)(i2 + j2) : 0.0;
-         double d2 = l2 + i3 > 0L ? 100.0 * (double)i3 / (double)(l2 + i3) : 0.0;
-         VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] {} fps | desc {}/frame ({}% cached, {} binds skipped) | barrier {}/frame ({}% coalesced) | unrolled {}/frame | rp={} fb={}", new Object[]{String.format("%.1f", new Object[]{(double)frames / d0}), per(l1), String.format("%.0f", new Object[]{d1}), per(k2), per(l2), String.format("%.0f", new Object[]{d2}), per(j3), DynamicRenderingEmulation.renderPassCount(), DynamicRenderingEmulation.framebufferCount()});
+         double d2 = l2 > 0L ? Math.min(100.0, 100.0 * (double)i3 / (double)(l2 + i3)) : 0.0;
+         VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] {} fps | desc {}/frame ({}% cached, {} binds skipped) | skipped {}/frame | barrier {}/frame ({}% coalesced) | unrolled {}/frame | rp={} fb={}", new Object[]{String.format("%.1f", new Object[]{(double)frames / d0}), per(l1), String.format("%.0f", new Object[]{d1}), per(k2), per(l2), String.format("%.0f", new Object[]{d2}), per(j3), per(PushDescriptorEmulation.skippedPushes() - prevSkipped), DynamicRenderingEmulation.renderPassCount(), DynamicRenderingEmulation.framebufferCount()});
          VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] {}", FrameProfiler.summary());
          prevPushes = i;
          prevCacheHits = j;
@@ -60,6 +61,7 @@ public final class Metrics {
          prevBarriersIssued = i1;
          prevBarriersCoalesced = j1;
          prevUnrolledDraws = k1;
+         prevSkipped = PushDescriptorEmulation.skippedPushes();
       }
 
    }

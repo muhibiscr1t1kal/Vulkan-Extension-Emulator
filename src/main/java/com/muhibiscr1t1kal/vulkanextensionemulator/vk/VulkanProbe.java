@@ -1,4 +1,3 @@
-
 package com.muhibiscr1t1kal.vulkanextensionemulator.vk;
 
 import java.nio.IntBuffer;
@@ -14,8 +13,10 @@ import org.lwjgl.vulkan.VkApplicationInfo;
 import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
+import org.lwjgl.vulkan.VkMemoryHeap;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
+import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
 public final class VulkanProbe {
@@ -32,136 +33,152 @@ public final class VulkanProbe {
       Map map2 = new LinkedHashMap();
       VkInstance vkinstance = null;
 
+      Result vulkanprobe$result2;
       try {
-         Result vulkanprobe$result2;
-         try {
-            MemoryStack memorystack = MemoryStack.stackPush();
+         MemoryStack memorystack = MemoryStack.stackPush();
 
-            Result vulkanprobe$result1;
-            label286: {
-               Result count;
-               label287: {
-                  try {
-                     VkApplicationInfo vkapplicationinfo = VkApplicationInfo.calloc(memorystack).sType$Default().pApplicationName(memorystack.UTF8("Vulkan Extension Emulator Probe")).apiVersion(VK11.VK_API_VERSION_1_1);
-                     VkInstanceCreateInfo vkinstancecreateinfo = VkInstanceCreateInfo.calloc(memorystack).sType$Default().pApplicationInfo(vkapplicationinfo);
-                     PointerBuffer pointerbuffer = memorystack.mallocPointer(1);
-                     int i = VK11.vkCreateInstance(vkinstancecreateinfo, (VkAllocationCallbacks)null, pointerbuffer);
-                     if (i == 0) {
-                        vkinstance = new VkInstance(pointerbuffer.get(0), vkinstancecreateinfo);
-                        IntBuffer intbuffer = memorystack.mallocInt(1);
-                        VK11.vkEnumeratePhysicalDevices(vkinstance, intbuffer, (PointerBuffer)null);
-                        if (intbuffer.get(0) == 0) {
-                           list.add("No Vulkan physical devices found");
-                           vulkanprobe$result1 = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list);
-                           break label286;
-                        }
-
-                        PointerBuffer pointerbuffer1 = memorystack.mallocPointer(intbuffer.get(0));
-                        VK11.vkEnumeratePhysicalDevices(vkinstance, intbuffer, pointerbuffer1);
-                        VkPhysicalDevice vkphysicaldevice = new VkPhysicalDevice(pointerbuffer1.get(0), vkinstance);
-                        VkPhysicalDeviceProperties vkphysicaldeviceproperties = VkPhysicalDeviceProperties.calloc(memorystack);
-                        VK11.vkGetPhysicalDeviceProperties(vkphysicaldevice, vkphysicaldeviceproperties);
-                        String s = vkphysicaldeviceproperties.deviceNameString();
-                        int j = vkphysicaldeviceproperties.apiVersion();
-                        int k = VK11.VK_VERSION_MAJOR(j);
-                        int l = VK11.VK_VERSION_MINOR(j);
-                        int i1 = VK11.VK_VERSION_PATCH(j);
-                        int var10000 = vkphysicaldeviceproperties.driverVersion();
-                        String s1 = "driverVersion=" + var10000 + " vendorID=0x" + Integer.toHexString(vkphysicaldeviceproperties.vendorID());
-                        VK11.vkEnumerateDeviceExtensionProperties(vkphysicaldevice, (String)null, intbuffer, (VkExtensionProperties.Buffer)null);
-                        VkExtensionProperties.Buffer buffer = VkExtensionProperties.calloc(intbuffer.get(0), memorystack);
-                        VK11.vkEnumerateDeviceExtensionProperties(vkphysicaldevice, (String)null, intbuffer, buffer);
-                        List list1 = new ArrayList();
-
-                        for(int j1 = 0; j1 < buffer.capacity(); ++j1) {
-                           list1.add(((VkExtensionProperties)buffer.get(j1)).extensionNameString());
-                        }
-
-                        String[] var46 = REQUIRED_EXTENSIONS;
-                        int var26 = var46.length;
-
-                        int var27;
-                        String s3;
-                        for(var27 = 0; var27 < var26; ++var27) {
-                           s3 = var46[var27];
-                           map.put(s3, list1.contains(s3));
-                        }
-
-                        var46 = HELPFUL_EXTENSIONS;
-                        var26 = var46.length;
-
-                        for(var27 = 0; var27 < var26; ++var27) {
-                           s3 = var46[var27];
-                           map.put(s3, list1.contains(s3));
-                        }
-
-                        VkPhysicalDeviceFeatures vkphysicaldevicefeatures = VkPhysicalDeviceFeatures.calloc(memorystack);
-                        VK11.vkGetPhysicalDeviceFeatures(vkphysicaldevice, vkphysicaldevicefeatures);
-                        map1.put("multiDrawIndirect", vkphysicaldevicefeatures.multiDrawIndirect());
-                        map1.put("samplerAnisotropy", vkphysicaldevicefeatures.samplerAnisotropy());
-                        map1.put("fillModeNonSolid", vkphysicaldevicefeatures.fillModeNonSolid());
-                        map1.put("depthClamp", vkphysicaldevicefeatures.depthClamp());
-                        map1.put("independentBlend", vkphysicaldevicefeatures.independentBlend());
-                        map2.put("vkCreateRenderPass (VK1.0 core)", true);
-                        map2.put("vkCreateFramebuffer (VK1.0 core)", true);
-                        map2.put("vkCmdBeginRenderPass (VK1.0 core)", true);
-                        map2.put("vkCmdPipelineBarrier (VK1.0 core)", true);
-                        map2.put("vkQueueSubmit (VK1.0 core)", true);
-                        map2.put("VK_KHR_create_renderpass2 (nicer, optional)", list1.contains("VK_KHR_create_renderpass2"));
-                        list.add("Legacy render-pass path is Vulkan 1.0 core and always present.");
-                        list.add("This is what dynamic rendering was built on top of in 2021.");
-                        vulkanprobe$result2 = new Result(true, s, s1, k, l, i1, map, map1, map2, list);
-                        break label287;
+         Result vulkanprobe$result1;
+         label332: {
+            Result count;
+            label333: {
+               try {
+                  VkApplicationInfo vkapplicationinfo = VkApplicationInfo.calloc(memorystack).sType$Default().pApplicationName(memorystack.UTF8("Vulkan Extension Emulator Probe")).apiVersion(VK11.VK_API_VERSION_1_1);
+                  VkInstanceCreateInfo vkinstancecreateinfo = VkInstanceCreateInfo.calloc(memorystack).sType$Default().pApplicationInfo(vkapplicationinfo);
+                  PointerBuffer pointerbuffer = memorystack.mallocPointer(1);
+                  int i = VK11.vkCreateInstance(vkinstancecreateinfo, (VkAllocationCallbacks)null, pointerbuffer);
+                  if (i == 0) {
+                     vkinstance = new VkInstance(pointerbuffer.get(0), vkinstancecreateinfo);
+                     IntBuffer intbuffer = memorystack.mallocInt(1);
+                     VK11.vkEnumeratePhysicalDevices(vkinstance, intbuffer, (PointerBuffer)null);
+                     if (intbuffer.get(0) == 0) {
+                        list.add("No Vulkan physical devices found");
+                        vulkanprobe$result1 = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list, 0L);
+                        break label332;
                      }
 
-                     list.add("vkCreateInstance failed: " + i);
-                     count = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list);
-                  } catch (Throwable var42) {
-                     if (memorystack != null) {
-                        try {
-                           memorystack.close();
-                        } catch (Throwable var41) {
-                           var42.addSuppressed(var41);
-                        }
+                     PointerBuffer pointerbuffer1 = memorystack.mallocPointer(intbuffer.get(0));
+                     VK11.vkEnumeratePhysicalDevices(vkinstance, intbuffer, pointerbuffer1);
+                     VkPhysicalDevice vkphysicaldevice = new VkPhysicalDevice(pointerbuffer1.get(0), vkinstance);
+                     VkPhysicalDeviceProperties vkphysicaldeviceproperties = VkPhysicalDeviceProperties.calloc(memorystack);
+                     VK11.vkGetPhysicalDeviceProperties(vkphysicaldevice, vkphysicaldeviceproperties);
+                     String s = vkphysicaldeviceproperties.deviceNameString();
+                     int j = vkphysicaldeviceproperties.apiVersion();
+                     int k = VK11.VK_VERSION_MAJOR(j);
+                     int l = VK11.VK_VERSION_MINOR(j);
+                     int i1 = VK11.VK_VERSION_PATCH(j);
+                     int var10000 = vkphysicaldeviceproperties.driverVersion();
+                     String s1 = "driverVersion=" + var10000 + " vendorID=0x" + Integer.toHexString(vkphysicaldeviceproperties.vendorID());
+                     VK11.vkEnumerateDeviceExtensionProperties(vkphysicaldevice, (String)null, intbuffer, (VkExtensionProperties.Buffer)null);
+                     VkExtensionProperties.Buffer buffer = VkExtensionProperties.calloc(intbuffer.get(0), memorystack);
+                     VK11.vkEnumerateDeviceExtensionProperties(vkphysicaldevice, (String)null, intbuffer, buffer);
+                     List list1 = new ArrayList();
+
+                     for(int j1 = 0; j1 < buffer.capacity(); ++j1) {
+                        list1.add(((VkExtensionProperties)buffer.get(j1)).extensionNameString());
                      }
 
-                     throw var42;
+                     String[] var50 = REQUIRED_EXTENSIONS;
+                     int var26 = var50.length;
+
+                     int var27;
+                     String s3;
+                     for(var27 = 0; var27 < var26; ++var27) {
+                        s3 = var50[var27];
+                        map.put(s3, list1.contains(s3));
+                     }
+
+                     var50 = HELPFUL_EXTENSIONS;
+                     var26 = var50.length;
+
+                     for(var27 = 0; var27 < var26; ++var27) {
+                        s3 = var50[var27];
+                        map.put(s3, list1.contains(s3));
+                     }
+
+                     VkPhysicalDeviceFeatures vkphysicaldevicefeatures = VkPhysicalDeviceFeatures.calloc(memorystack);
+                     VK11.vkGetPhysicalDeviceFeatures(vkphysicaldevice, vkphysicaldevicefeatures);
+                     map1.put("multiDrawIndirect", vkphysicaldevicefeatures.multiDrawIndirect());
+                     map1.put("samplerAnisotropy", vkphysicaldevicefeatures.samplerAnisotropy());
+                     map1.put("fillModeNonSolid", vkphysicaldevicefeatures.fillModeNonSolid());
+                     map1.put("depthClamp", vkphysicaldevicefeatures.depthClamp());
+                     map1.put("independentBlend", vkphysicaldevicefeatures.independentBlend());
+                     map2.put("vkCreateRenderPass (VK1.0 core)", true);
+                     map2.put("vkCreateFramebuffer (VK1.0 core)", true);
+                     map2.put("vkCmdBeginRenderPass (VK1.0 core)", true);
+                     map2.put("vkCmdPipelineBarrier (VK1.0 core)", true);
+                     map2.put("vkQueueSubmit (VK1.0 core)", true);
+                     map2.put("VK_KHR_create_renderpass2 (nicer, optional)", list1.contains("VK_KHR_create_renderpass2"));
+                     list.add("Legacy render-pass path is Vulkan 1.0 core and always present.");
+                     list.add("This is what dynamic rendering was built on top of in 2021.");
+                     long i2 = 0L;
+
+                     try {
+                        VkPhysicalDeviceMemoryProperties vkphysicaldevicememoryproperties = VkPhysicalDeviceMemoryProperties.calloc(memorystack);
+                        VK11.vkGetPhysicalDeviceMemoryProperties(vkphysicaldevice, vkphysicaldevicememoryproperties);
+                        VkMemoryHeap.Buffer buffer2 = vkphysicaldevicememoryproperties.memoryHeaps();
+
+                        for(int k2 = 0; k2 < buffer2.capacity(); ++k2) {
+                           if (((VkMemoryHeap)buffer2.get(k2)).flags() == 1 || (((VkMemoryHeap)buffer2.get(k2)).flags() & 1) == 1) {
+                              i2 = ((VkMemoryHeap)buffer2.get(k2)).size();
+                              break;
+                           }
+                        }
+                     } catch (Throwable var45) {
+                     }
+
+                     vulkanprobe$result2 = new Result(true, s, s1, k, l, i1, map, map1, map2, list, i2);
+                     break label333;
                   }
 
+                  list.add("vkCreateInstance failed: " + i);
+                  count = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list, 0L);
+               } catch (Throwable var46) {
                   if (memorystack != null) {
-                     memorystack.close();
+                     try {
+                        memorystack.close();
+                     } catch (Throwable var44) {
+                        var46.addSuppressed(var44);
+                     }
                   }
 
-                  Result var45 = count;
-                  return var45;
+                  throw var46;
                }
 
                if (memorystack != null) {
                   memorystack.close();
                }
 
-               count = vulkanprobe$result2;
-               return count;
+               Result var49 = count;
+               return var49;
             }
 
             if (memorystack != null) {
                memorystack.close();
             }
 
-            return vulkanprobe$result1;
-         } catch (Throwable var43) {
-            list.add("Probe threw: " + String.valueOf(var43));
-            vulkanprobe$result2 = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list);
-            return vulkanprobe$result2;
+            count = vulkanprobe$result2;
+            return count;
          }
+
+         if (memorystack != null) {
+            memorystack.close();
+         }
+
+         return vulkanprobe$result1;
+      } catch (Throwable var47) {
+         list.add("Probe threw: " + String.valueOf(var47));
+         vulkanprobe$result2 = new Result(false, "-", "-", 0, 0, 0, map, map1, map2, list, 0L);
       } finally {
          if (vkinstance != null) {
             try {
                VK11.vkDestroyInstance(vkinstance, (VkAllocationCallbacks)null);
-            } catch (Throwable var40) {
+            } catch (Throwable var43) {
             }
          }
+
       }
+
+      return vulkanprobe$result2;
    }
 
    public static String format(Result r) {
@@ -199,14 +216,12 @@ public final class VulkanProbe {
 
          stringbuilder.append("\n-- Core features --\n");
          r.features().forEach((k, v) -> {
-            stringbuilder.append(Boolean.TRUE.equals(v) ? "  [YES] " : "  [NO ] ").append(k).append('\n');
+            stringbuilder.append(((Boolean)v) ? "  [YES] " : "  [NO ] ").append(k).append('\n');
          });
-
          stringbuilder.append("\n-- Emulation target path --\n");
          r.legacyPath().forEach((k, v) -> {
-            stringbuilder.append(Boolean.TRUE.equals(v) ? "  [YES] " : "  [NO ] ").append(k).append('\n');
+            stringbuilder.append(((Boolean)v) ? "  [YES] " : "  [NO ] ").append(k).append('\n');
          });
-
          stringbuilder.append('\n');
          r.notes().forEach((n) -> {
             stringbuilder.append("  * ").append(n).append('\n');
@@ -215,8 +230,8 @@ public final class VulkanProbe {
       }
    }
 
-   public static record Result(boolean vulkanAvailable, String deviceName, String driverInfo, int apiMajor, int apiMinor, int apiPatch, Map extensions, Map features, Map legacyPath, List notes) {
-      public Result(boolean vulkanAvailable, String deviceName, String driverInfo, int apiMajor, int apiMinor, int apiPatch, Map extensions, Map features, Map legacyPath, List notes) {
+   public static record Result(boolean vulkanAvailable, String deviceName, String driverInfo, int apiMajor, int apiMinor, int apiPatch, Map extensions, Map features, Map legacyPath, List notes, long deviceLocalBytes) {
+      public Result(boolean vulkanAvailable, String deviceName, String driverInfo, int apiMajor, int apiMinor, int apiPatch, Map extensions, Map features, Map legacyPath, List notes, long deviceLocalBytes) {
          this.vulkanAvailable = vulkanAvailable;
          this.deviceName = deviceName;
          this.driverInfo = driverInfo;
@@ -227,6 +242,7 @@ public final class VulkanProbe {
          this.features = features;
          this.legacyPath = legacyPath;
          this.notes = notes;
+         this.deviceLocalBytes = deviceLocalBytes;
       }
 
       public boolean vulkanAvailable() {
@@ -267,6 +283,10 @@ public final class VulkanProbe {
 
       public List notes() {
          return this.notes;
+      }
+
+      public long deviceLocalBytes() {
+         return this.deviceLocalBytes;
       }
    }
 }

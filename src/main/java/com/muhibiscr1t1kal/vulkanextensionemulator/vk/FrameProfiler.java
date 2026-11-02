@@ -21,12 +21,12 @@ public final class FrameProfiler {
    }
 
    public static boolean enabled() {
-      return VulkanExtensionEmulator.config().profileFrames || VulkanExtensionEmulator.isEmulating();
+      return VulkanExtensionEmulator.config().profileFrames || VulkanExtensionEmulator.config().stutterLog || VulkanExtensionEmulator.isEmulating();
    }
 
    public static void beginFrame() {
+      frameStart = System.nanoTime();
       if (enabled()) {
-         frameStart = System.nanoTime();
          emulationNs = 0L;
          gpuWaitNs = 0L;
          acquireNs = 0L;
@@ -56,31 +56,41 @@ public final class FrameProfiler {
    }
 
    public static void endFrame() {
-      if (enabled() && frameStart != 0L) {
+      if (frameStart != 0L) {
          long i = System.nanoTime() - frameStart;
          frameStart = 0L;
-         ++totalFrames;
-         sumFrame += i;
-         sumEmulation += emulationNs;
-         sumGpuWait += gpuWaitNs;
-         sumAcquire += acquireNs;
-         if (i >= 33000000L) {
-            ++slowFrames;
-            if (reports < 40) {
-               ++reports;
-               long j = i - emulationNs - gpuWaitNs - acquireNs;
-               if (j < 0L) {
-                  j = 0L;
-               }
+         if (VulkanExtensionEmulator.config().adaptiveDepth) {
+            PipelineDepth.noteFrameTime(i);
+         }
 
-               VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] SLOW FRAME {}ms = emulation {}ms + gpuWait {}ms + acquire {}ms + other {}ms", new Object[]{ms(i), ms(emulationNs), ms(gpuWaitNs), ms(acquireNs), ms(j)});
-               if (reports == 40) {
-                  VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] (further slow frames counted but not logged)");
+         if (enabled()) {
+            ++totalFrames;
+            sumFrame += i;
+            sumEmulation += emulationNs;
+            sumGpuWait += gpuWaitNs;
+            sumAcquire += acquireNs;
+            if (i >= 33000000L) {
+               ++slowFrames;
+               if (reports < 40) {
+                  ++reports;
+                  long j = i - emulationNs - gpuWaitNs - acquireNs;
+                  if (j < 0L) {
+                     j = 0L;
+                  }
+
+                  VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] SLOW FRAME {}ms = emulation {}ms + gpuWait {}ms + acquire {}ms + other {}ms", new Object[]{ms(i), ms(emulationNs), ms(gpuWaitNs), ms(acquireNs), ms(j)});
+                  if (reports == 40) {
+                     VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] (further slow frames counted but not logged)");
+                  }
                }
             }
+
+            if (VulkanExtensionEmulator.config().stutterLog) {
+               StutterLog.noteFrame(i, emulationNs, gpuWaitNs, acquireNs);
+            }
+
          }
       }
-
    }
 
    public static String summary() {

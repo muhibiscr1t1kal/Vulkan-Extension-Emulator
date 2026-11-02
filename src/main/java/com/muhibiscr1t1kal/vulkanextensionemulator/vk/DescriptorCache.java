@@ -11,7 +11,7 @@ import org.lwjgl.vulkan.VkDescriptorImageInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 public final class DescriptorCache {
-   private static final int MAX_ENTRIES = 1024;
+   private static final int MAX_ENTRIES = 4096;
    private final Map sets = new HashMap();
    private final Map handleToKeys = new HashMap();
    private long hits;

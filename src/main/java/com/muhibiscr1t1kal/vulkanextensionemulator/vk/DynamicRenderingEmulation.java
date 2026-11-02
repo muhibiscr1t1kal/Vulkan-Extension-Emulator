@@ -40,21 +40,22 @@ public final class DynamicRenderingEmulation {
    private static final int LAYOUT_GENERAL = 1;
    private static VkDevice device;
    private static final int MAX_FRAMEBUFFERS = 256;
-   private static final Map<Key, Long> renderPasses = new HashMap<>();
-   private static final Map<Key, Long> framebuffers = new HashMap<>();
-   private static final Map<Long, List<Key>> viewToFramebuffers = new HashMap<>();
-   private static final Map<Long, Long> pendingFramebuffers = new HashMap<>();
+   private static final Map renderPasses = new HashMap();
+   private static final Map framebuffers = new HashMap();
+   private static final Map viewToFramebuffers = new HashMap();
+   private static final Map pendingFramebuffers = new HashMap();
    private static long lifecycleCounter;
-   private static final ThreadLocal<RenderPassDescriptor> pending = new ThreadLocal<>();
-   private static final Set<Key> recentlyUsed = new HashSet<>();
+   private static final ThreadLocal pending = new ThreadLocal();
+   private static final Set recentlyUsed = new HashSet();
    private static boolean loggedTrim;
+   private static long currentSubmitIndex;
    private static long renderPassesCreated;
    private static long framebuffersCreated;
    private static long framebuffersEvicted;
    private static boolean loggedFirstPass;
    private static boolean warnedMissingDescriptor;
-   private static final Set<String> pipelineFormats = new HashSet<>();
-   private static final Set<String> reportedMismatches = new HashSet<>();
+   private static final Set pipelineFormats = new HashSet();
+   private static final Set reportedMismatches = new HashSet();
 
    private DynamicRenderingEmulation() {
    }
@@ -68,397 +69,311 @@ public final class DynamicRenderingEmulation {
    }
 
    public static boolean active() {
-      return VulkanExtensionEmulator.config().emulateDynamicRendering
-         && Emulation.isExtensionEmulated("VK_KHR_dynamic_rendering");
+      return VulkanExtensionEmulator.config().emulateDynamicRendering && Emulation.isExtensionEmulated("VK_KHR_dynamic_rendering");
    }
 
    public static void init(VkDevice d) {
       device = d;
-      VulkanExtensionEmulator.LOGGER.info(
-         "[Vulkan Extension Emulator] Dynamic rendering emulation initialised (render passes + framebuffers, layout=GENERAL, no transitions)"
-      );
+      VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] Dynamic rendering emulation initialised (render passes + framebuffers, layout=GENERAL, no transitions)");
    }
 
    public static void shutdown() {
       if (device != null) {
          try {
             VK10.vkDeviceWaitIdle(device);
-         } catch (Throwable ignored) {
+         } catch (Throwable var7) {
          }
 
-         for (long framebuffer : framebuffers.values()) {
+         Iterator var0 = framebuffers.values().iterator();
+
+         long k;
+         while(var0.hasNext()) {
+            k = (Long)var0.next();
+
             try {
-               VK10.vkDestroyFramebuffer(
-                  device,
-                  framebuffer,
-                  (VkAllocationCallbacks) null
-               );
-            } catch (Throwable ignored) {
+               VK10.vkDestroyFramebuffer(device, k, (VkAllocationCallbacks)null);
+            } catch (Throwable var6) {
             }
          }
 
-         for (long renderPass : renderPasses.values()) {
+         var0 = renderPasses.values().iterator();
+
+         while(var0.hasNext()) {
+            k = (Long)var0.next();
+
             try {
-               VK10.vkDestroyRenderPass(
-                  device,
-                  renderPass,
-                  (VkAllocationCallbacks) null
-               );
-            } catch (Throwable ignored) {
+               VK10.vkDestroyRenderPass(device, k, (VkAllocationCallbacks)null);
+            } catch (Throwable var5) {
             }
          }
 
-         for (long framebuffer : pendingFramebuffers.keySet()) {
+         var0 = pendingFramebuffers.keySet().iterator();
+
+         while(var0.hasNext()) {
+            k = (Long)var0.next();
+
             try {
-               VK10.vkDestroyFramebuffer(
-                  device,
-                  framebuffer,
-                  (VkAllocationCallbacks) null
-               );
-            } catch (Throwable ignored) {
+               VK10.vkDestroyFramebuffer(device, k, (VkAllocationCallbacks)null);
+            } catch (Throwable var4) {
             }
          }
 
-         VulkanExtensionEmulator.LOGGER.info(
-            "[Vulkan Extension Emulator] Dynamic rendering shutdown: {} render pass(es), {} framebuffer(s) created, {} evicted",
-            renderPassesCreated,
-            framebuffersCreated,
-            framebuffersEvicted
-         );
-
+         VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] Dynamic rendering shutdown: {} render pass(es), {} framebuffer(s) created, {} evicted", new Object[]{renderPassesCreated, framebuffersCreated, framebuffersEvicted});
          framebuffers.clear();
          renderPasses.clear();
          viewToFramebuffers.clear();
          pendingFramebuffers.clear();
-         recentlyUsed.clear();
-         pipelineFormats.clear();
-         reportedMismatches.clear();
-         pending.remove();
          device = null;
       }
+
    }
 
    public static void stashDescriptor(RenderPassDescriptor descriptor) {
       if (active()) {
          pending.set(descriptor);
       }
+
    }
 
    public static void beginRendering(VkCommandBuffer cmd, VkRenderingInfo info) {
-      VkDevice vkDevice = cmd != null ? cmd.getDevice() : null;
-
-      if (!active() || vkDevice != null
-         && vkDevice.getCapabilities().vkCmdBeginRenderingKHR != 0L) {
-         KHRDynamicRendering.vkCmdBeginRenderingKHR(cmd, info);
-      } else {
-         RenderPassDescriptor descriptor = pending.get();
+      if (active() && !NativeCaps.dynamicRendering) {
+         RenderPassDescriptor renderpassdescriptor = (RenderPassDescriptor)pending.get();
          pending.remove();
-
-         if (descriptor == null && !warnedMissingDescriptor) {
+         if (renderpassdescriptor == null && !warnedMissingDescriptor) {
             warnedMissingDescriptor = true;
-            VulkanExtensionEmulator.LOGGER.error(
-               "[Vulkan Extension Emulator] vkCmdBeginRendering with no stashed descriptor — attachment formats are unknown. Rendering will be wrong."
-            );
+            VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] vkCmdBeginRendering with no stashed descriptor — attachment formats are unknown. Rendering will be wrong.");
          }
 
          if (device == null) {
             device = cmd.getDevice();
          }
 
-         long startTime = System.nanoTime();
+         long i = System.nanoTime();
 
          try {
-            begin0(cmd, info, descriptor);
-         } catch (Throwable exception) {
-            VulkanExtensionEmulator.LOGGER.error(
-               "[Vulkan Extension Emulator] Dynamic rendering emulation failed at vkCmdBeginRendering; the frame will be wrong but the game should stay up",
-               exception
-            );
+            begin0(cmd, info, renderpassdescriptor);
+         } catch (Throwable var9) {
+            VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Dynamic rendering emulation failed at vkCmdBeginRendering; the frame will be wrong but the game should stay up", var9);
          } finally {
-            FrameProfiler.addEmulation(startTime);
+            FrameProfiler.addEmulation(i);
          }
+      } else {
+         KHRDynamicRendering.vkCmdBeginRenderingKHR(cmd, info);
       }
+
    }
 
-   private static void begin0(
-      VkCommandBuffer cmd,
-      VkRenderingInfo info,
-      RenderPassDescriptor descriptor
-   ) {
-      int colorCount = info.colorAttachmentCount();
-      VkRenderingAttachmentInfo.Buffer colorAttachments =
-         colorCount > 0 ? info.pColorAttachments() : null;
-      VkRenderingAttachmentInfo depthAttachment = info.pDepthAttachment();
+   private static void begin0(VkCommandBuffer cmd, VkRenderingInfo info, RenderPassDescriptor descriptor) {
+      int i = info.colorAttachmentCount();
+      VkRenderingAttachmentInfo.Buffer buffer = i > 0 ? info.pColorAttachments() : null;
+      VkRenderingAttachmentInfo vkrenderingattachmentinfo = info.pDepthAttachment();
+      int[] aint = new int[i];
+      long[] along = new long[i + (vkrenderingattachmentinfo != null ? 1 : 0)];
+      int j = 0;
+      int[] aint1 = new int[1 + i * 3 + 3];
+      aint1[0] = i;
 
-      int[] colorSlots = new int[colorCount];
-      long[] views = new long[
-         colorCount + (depthAttachment != null ? 1 : 0)
-      ];
-
-      int attachmentCount = 0;
-      int[] signature = new int[1 + colorCount * 3 + 3];
-      signature[0] = colorCount;
-
-      for (int index = 0; index < colorCount; ++index) {
-         VkRenderingAttachmentInfo attachment = colorAttachments.get(index);
-         long view = attachment.imageView();
-
-         if (view == 0L) {
-            colorSlots[index] = -1;
+      int i3;
+      for(i3 = 0; i3 < i; ++i3) {
+         VkRenderingAttachmentInfo vkrenderingattachmentinfo1 = (VkRenderingAttachmentInfo)buffer.get(i3);
+         long l = vkrenderingattachmentinfo1.imageView();
+         if (l == 0L) {
+            aint[i3] = -1;
          } else {
-            int format = colorFormat(descriptor, index);
-            colorSlots[index] = attachmentCount;
-            views[attachmentCount] = view;
-            signature[1 + index * 3] = format;
-            signature[2 + index * 3] = attachment.loadOp();
-            signature[3 + index * 3] = attachment.storeOp();
-            ++attachmentCount;
+            int j1 = colorFormat(descriptor, i3);
+            aint[i3] = j;
+            along[j] = l;
+            aint1[1 + i3 * 3] = j1;
+            aint1[2 + i3 * 3] = vkrenderingattachmentinfo1.loadOp();
+            aint1[3 + i3 * 3] = vkrenderingattachmentinfo1.storeOp();
+            ++j;
          }
       }
 
-      int depthSlot = -1;
-
-      if (depthAttachment != null && depthAttachment.imageView() != 0L) {
-         depthSlot = attachmentCount;
-         views[attachmentCount] = depthAttachment.imageView();
-         signature[1 + colorCount * 3] = depthFormat(descriptor);
-         signature[2 + colorCount * 3] = depthAttachment.loadOp();
-         signature[3 + colorCount * 3] = depthAttachment.storeOp();
-         ++attachmentCount;
+      i3 = -1;
+      if (vkrenderingattachmentinfo != null && vkrenderingattachmentinfo.imageView() != 0L) {
+         i3 = j;
+         along[j] = vkrenderingattachmentinfo.imageView();
+         aint1[1 + i * 3] = depthFormat(descriptor);
+         aint1[2 + i * 3] = vkrenderingattachmentinfo.loadOp();
+         aint1[3 + i * 3] = vkrenderingattachmentinfo.storeOp();
+         ++j;
       }
 
-      boolean hasDepth = depthSlot != -1;
-      checkCompatibility(signature, colorCount);
+      boolean flag = i3 != -1;
+      checkCompatibility(aint1, i);
+      Key dynamicrenderingemulation$key = new Key(aint1);
+      long i1 = (Long)renderPasses.computeIfAbsent(dynamicrenderingemulation$key, (k) -> {
+         return createRenderPass(aint1, aint, flag);
+      });
+      if (i1 != 0L) {
+         int k1 = 0;
+         int l1 = 0;
 
-      Key renderPassKey = new Key(signature);
-      long renderPass = renderPasses.computeIfAbsent(
-         renderPassKey,
-         key -> createRenderPass(signature, colorSlots, hasDepth)
-      );
-
-      if (renderPass != 0L) {
-         int width = 0;
-         int height = 0;
-
-         for (int index = 0; index < colorCount && width == 0; ++index) {
-            GpuTextureView textureView = viewAt(descriptor, index);
-
-            if (textureView != null) {
-               width = textureView.getWidth(0);
-               height = textureView.getHeight(0);
+         for(int i2 = 0; i2 < i && k1 == 0; ++i2) {
+            GpuTextureView gputextureview = viewAt(descriptor, i2);
+            if (gputextureview != null) {
+               k1 = gputextureview.getWidth(0);
+               l1 = gputextureview.getHeight(0);
             }
          }
 
-         if (width == 0 && descriptor != null
-            && descriptor.depthAttachment() != null) {
-            GpuTextureView textureView =
-               descriptor.depthAttachment().textureView();
-            width = textureView.getWidth(0);
-            height = textureView.getHeight(0);
+         if (k1 == 0 && descriptor != null && descriptor.depthAttachment() != null) {
+            GpuTextureView gputextureview1 = descriptor.depthAttachment().textureView();
+            k1 = gputextureview1.getWidth(0);
+            l1 = gputextureview1.getHeight(0);
          }
 
-         if (width == 0 || height == 0) {
-            VkRect2D renderArea = info.renderArea();
-            width = renderArea.offset().x() + renderArea.extent().width();
-            height = renderArea.offset().y() + renderArea.extent().height();
+         if (k1 == 0 || l1 == 0) {
+            VkRect2D vkrect2d = info.renderArea();
+            k1 = vkrect2d.offset().x() + vkrect2d.extent().width();
+            l1 = vkrect2d.offset().y() + vkrect2d.extent().height();
          }
 
-         long[] framebufferKeyData = new long[attachmentCount + 3];
-         framebufferKeyData[0] = renderPass;
-         System.arraycopy(
-            views,
-            0,
-            framebufferKeyData,
-            1,
-            attachmentCount
-         );
-         framebufferKeyData[attachmentCount + 1] = width;
-         framebufferKeyData[attachmentCount + 2] = height;
-
-         Key framebufferKey = new Key(framebufferKeyData);
-         Long cachedFramebuffer = framebuffers.get(framebufferKey);
-         recentlyUsed.add(framebufferKey);
-
-         long framebuffer;
-
-         if (cachedFramebuffer != null) {
-            framebuffer = cachedFramebuffer;
+         long[] along1 = new long[j + 3];
+         along1[0] = i1;
+         System.arraycopy(along, 0, along1, 1, j);
+         along1[j + 1] = (long)k1;
+         along1[j + 2] = (long)l1;
+         Key dynamicrenderingemulation$key1 = new Key(along1);
+         Long olong = (Long)framebuffers.get(dynamicrenderingemulation$key1);
+         recentlyUsed.add(dynamicrenderingemulation$key1);
+         long j2;
+         if (olong != null) {
+            j2 = olong;
          } else {
-            if (framebuffers.size() >= 64) {
+            if (framebuffers.size() >= 256) {
                trimFramebuffers();
             }
 
-            framebuffer = createFramebuffer(
-               renderPass,
-               views,
-               attachmentCount,
-               width,
-               height
-            );
-
-            if (framebuffer == 0L) {
+            j2 = createFramebuffer(i1, along, j, k1, l1);
+            if (j2 == 0L) {
                return;
             }
 
-            framebuffers.put(framebufferKey, framebuffer);
+            framebuffers.put(dynamicrenderingemulation$key1, j2);
 
-            for (int index = 0; index < attachmentCount; ++index) {
-               viewToFramebuffers.computeIfAbsent(
-                  views[index],
-                  key -> new ArrayList<>()
-               ).add(framebufferKey);
+            for(int k2 = 0; k2 < j; ++k2) {
+               ((List)viewToFramebuffers.computeIfAbsent(along[k2], (k) -> {
+                  return new ArrayList();
+               })).add(dynamicrenderingemulation$key1);
             }
          }
 
-         try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkClearValue.Buffer clearValues =
-               VkClearValue.calloc(Math.max(attachmentCount, 1), stack);
+         MemoryStack memorystack = MemoryStack.stackPush();
 
-            for (int index = 0; index < colorCount; ++index) {
-               if (colorSlots[index] != -1) {
-                  VkRenderingAttachmentInfo attachment =
-                     colorAttachments.get(index);
+         try {
+            VkClearValue.Buffer buffer1 = VkClearValue.calloc(Math.max(j, 1), memorystack);
+            int l2 = 0;
 
-                  if (attachment.loadOp() == 1) {
-                     MemoryUtil.memCopy(
-                        attachment.clearValue().address(),
-                        clearValues.get(colorSlots[index]).address(),
-                        VkClearValue.SIZEOF
-                     );
+            while(true) {
+               if (l2 >= i) {
+                  if (i3 != -1 && vkrenderingattachmentinfo.loadOp() == 1) {
+                     MemoryUtil.memCopy(vkrenderingattachmentinfo.clearValue().address(), ((VkClearValue)buffer1.get(i3)).address(), (long)VkClearValue.SIZEOF);
                   }
+
+                  VkRenderPassBeginInfo vkrenderpassbegininfo = VkRenderPassBeginInfo.calloc(memorystack).sType$Default().renderPass(i1).framebuffer(j2).pClearValues(buffer1);
+                  vkrenderpassbegininfo.renderArea().set(info.renderArea());
+                  vkrenderpassbegininfo.clearValueCount(j);
+                  if (!loggedFirstPass) {
+                     loggedFirstPass = true;
+                     VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] First emulated render pass: {} colour + {} depth, {}x{}, no layout transitions", new Object[]{j - (i3 != -1 ? 1 : 0), i3 != -1 ? 1 : 0, k1, l1});
+                  }
+
+                  Trace.mark("vkCmdBeginRenderPass");
+                  VK10.vkCmdBeginRenderPass(cmd, vkrenderpassbegininfo, 0);
+                  break;
+               }
+
+               if (aint[l2] != -1) {
+                  VkRenderingAttachmentInfo vkrenderingattachmentinfo2 = (VkRenderingAttachmentInfo)buffer.get(l2);
+                  if (vkrenderingattachmentinfo2.loadOp() == 1) {
+                     MemoryUtil.memCopy(vkrenderingattachmentinfo2.clearValue().address(), ((VkClearValue)buffer1.get(aint[l2])).address(), (long)VkClearValue.SIZEOF);
+                  }
+               }
+
+               ++l2;
+            }
+         } catch (Throwable var27) {
+            if (memorystack != null) {
+               try {
+                  memorystack.close();
+               } catch (Throwable var26) {
+                  var27.addSuppressed(var26);
                }
             }
 
-            if (depthSlot != -1 && depthAttachment.loadOp() == 1) {
-               MemoryUtil.memCopy(
-                  depthAttachment.clearValue().address(),
-                  clearValues.get(depthSlot).address(),
-                  VkClearValue.SIZEOF
-               );
-            }
+            throw var27;
+         }
 
-            VkRenderPassBeginInfo beginInfo =
-               VkRenderPassBeginInfo.calloc(stack)
-                  .sType$Default()
-                  .renderPass(renderPass)
-                  .framebuffer(framebuffer)
-                  .pClearValues(clearValues);
-
-            beginInfo.renderArea().set(info.renderArea());
-            beginInfo.clearValueCount(attachmentCount);
-
-            if (!loggedFirstPass) {
-               loggedFirstPass = true;
-
-               VulkanExtensionEmulator.LOGGER.info(
-                  "[Vulkan Extension Emulator] First emulated render pass: {} colour + {} depth, {}x{}, no layout transitions",
-                  attachmentCount - (depthSlot != -1 ? 1 : 0),
-                  depthSlot != -1 ? 1 : 0,
-                  width,
-                  height
-               );
-            }
-
-            Trace.mark("vkCmdBeginRenderPass");
-            VK10.vkCmdBeginRenderPass(cmd, beginInfo, 0);
+         if (memorystack != null) {
+            memorystack.close();
          }
       }
+
    }
 
    public static void endRendering(VkCommandBuffer cmd) {
-      VkDevice vkDevice = cmd != null ? cmd.getDevice() : null;
-
-      if (active() && (vkDevice == null
-         || vkDevice.getCapabilities().vkCmdEndRenderingKHR == 0L)) {
+      if (active() && !NativeCaps.dynamicRendering) {
          Trace.mark("vkCmdEndRenderPass");
          VK10.vkCmdEndRenderPass(cmd);
       } else {
          KHRDynamicRendering.vkCmdEndRenderingKHR(cmd);
       }
+
    }
 
-   public static int createGraphicsPipelines(
-      VkDevice dev,
-      long cache,
-      VkGraphicsPipelineCreateInfo.Buffer infos,
-      VkAllocationCallbacks allocator,
-      LongBuffer out
-   ) {
-      long next;
+   public static int createGraphicsPipelines(VkDevice dev, long cache, VkGraphicsPipelineCreateInfo.Buffer infos, VkAllocationCallbacks allocator, LongBuffer out) {
+      long i;
+      if (active() && !NativeCaps.dynamicRendering) {
+         if (device == null) {
+            device = dev;
+         }
 
-      if (!active() || dev != null
-         && dev.getCapabilities().vkCmdBeginRenderingKHR != 0L) {
-         next = cache != 0L ? cache : PipelineCache.handle();
-         return VK12.vkCreateGraphicsPipelines(
-            dev,
-            next,
-            infos,
-            allocator,
-            out
-         );
-      }
+         i = infos.pNext();
+         long j = findPipelineRenderingCreateInfo(i);
+         long k;
+         if (j == 0L) {
+            k = cache != 0L ? cache : PipelineCache.handle();
+            return VK12.vkCreateGraphicsPipelines(dev, k, infos, allocator, out);
+         } else {
+            try {
+               k = renderPassForPipeline(j);
+            } catch (Throwable var19) {
+               VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] Could not build a render pass for pipeline", var19);
+               return -3;
+            }
 
-      if (device == null) {
-         device = dev;
-      }
+            if (k == 0L) {
+               return -3;
+            } else {
+               infos.pNext(0L);
+               infos.renderPass(k);
+               infos.subpass(0);
 
-      next = infos.pNext();
-      long renderingInfo = findPipelineRenderingCreateInfo(next);
+               int var14;
+               try {
+                  Trace.mark("vkCreateGraphicsPipelines (render pass substituted)");
+                  long l = cache != 0L ? cache : PipelineCache.handle();
+                  var14 = VK12.vkCreateGraphicsPipelines(dev, l, infos, allocator, out);
+               } finally {
+                  infos.pNext(i);
+               }
 
-      if (renderingInfo == 0L) {
-         long pipelineCache = cache != 0L ? cache : PipelineCache.handle();
-         return VK12.vkCreateGraphicsPipelines(
-            dev,
-            pipelineCache,
-            infos,
-            allocator,
-            out
-         );
-      }
-
-      long renderPass;
-
-      try {
-         renderPass = renderPassForPipeline(renderingInfo);
-      } catch (Throwable exception) {
-         VulkanExtensionEmulator.LOGGER.error(
-            "[Vulkan Extension Emulator] Could not build a render pass for pipeline",
-            exception
-         );
-         return -3;
-      }
-
-      if (renderPass == 0L) {
-         return -3;
-      }
-
-      infos.pNext(0L);
-      infos.renderPass(renderPass);
-      infos.subpass(0);
-
-      try {
-         Trace.mark("vkCreateGraphicsPipelines (render pass substituted)");
-         long pipelineCache = cache != 0L ? cache : PipelineCache.handle();
-
-         return VK12.vkCreateGraphicsPipelines(
-            dev,
-            pipelineCache,
-            infos,
-            allocator,
-            out
-         );
-      } finally {
-         infos.pNext(next);
+               return var14;
+            }
+         }
+      } else {
+         i = cache != 0L ? cache : PipelineCache.handle();
+         return VK12.vkCreateGraphicsPipelines(dev, i, infos, allocator, out);
       }
    }
 
    private static long findPipelineRenderingCreateInfo(long head) {
-      for (long address = head; address != 0L;
-         address = MemoryUtil.memGetAddress(address + 8L)) {
-         int structureType = MemoryUtil.memGetInt(address);
-
-         if (structureType == ST_PIPELINE_RENDERING_CREATE_INFO) {
-            return address;
+      for(long i = head; i != 0L; i = MemoryUtil.memGetAddress(i + 8L)) {
+         int j = MemoryUtil.memGetInt(i);
+         if (j == 1000044002) {
+            return i;
          }
       }
 
@@ -466,409 +381,326 @@ public final class DynamicRenderingEmulation {
    }
 
    private static long renderPassForPipeline(long renderingInfo) {
-      VkPipelineRenderingCreateInfoKHR info =
-         VkPipelineRenderingCreateInfoKHR.create(renderingInfo);
+      VkPipelineRenderingCreateInfoKHR vkpipelinerenderingcreateinfokhr = VkPipelineRenderingCreateInfoKHR.create(renderingInfo);
+      int i = vkpipelinerenderingcreateinfokhr.colorAttachmentCount();
+      IntBuffer intbuffer = vkpipelinerenderingcreateinfokhr.pColorAttachmentFormats();
+      int j = vkpipelinerenderingcreateinfokhr.depthAttachmentFormat();
+      int[] aint = new int[i];
+      int[] aint1 = new int[1 + i * 3 + 3];
+      aint1[0] = i;
+      int k = 0;
 
-      int colorCount = info.colorAttachmentCount();
-      IntBuffer formats = info.pColorAttachmentFormats();
-      int depthFormat = info.depthAttachmentFormat();
-
-      int[] colorSlots = new int[colorCount];
-      int[] signature = new int[1 + colorCount * 3 + 3];
-      signature[0] = colorCount;
-
-      int attachmentCount = 0;
-
-      for (int index = 0; index < colorCount; ++index) {
-         int format = formats == null ? 0 : formats.get(index);
-
-         if (format == 0) {
-            colorSlots[index] = -1;
+      for(int l = 0; l < i; ++l) {
+         int i1 = intbuffer == null ? 0 : intbuffer.get(l);
+         if (i1 == 0) {
+            aint[l] = -1;
          } else {
-            colorSlots[index] = attachmentCount++;
-            signature[1 + index * 3] = format;
-            signature[2 + index * 3] = 0;
-            signature[3 + index * 3] = 0;
+            aint[l] = k++;
+            aint1[1 + l * 3] = i1;
+            aint1[2 + l * 3] = 0;
+            aint1[3 + l * 3] = 0;
          }
       }
 
-      boolean hasDepth = depthFormat != 0;
-
-      if (hasDepth) {
-         signature[1 + colorCount * 3] = depthFormat;
-         signature[2 + colorCount * 3] = 0;
-         signature[3 + colorCount * 3] = 0;
+      boolean flag = j != 0;
+      if (flag) {
+         aint1[1 + i * 3] = j;
+         aint1[2 + i * 3] = 0;
+         aint1[3 + i * 3] = 0;
       }
 
-      pipelineFormats.add(formatSignature(signature, colorCount));
-
-      return renderPasses.computeIfAbsent(
-         new Key(signature),
-         key -> createRenderPass(signature, colorSlots, hasDepth)
-      );
+      pipelineFormats.add(formatSignature(aint1, i));
+      return (Long)renderPasses.computeIfAbsent(new Key(aint1), (kx) -> {
+         return createRenderPass(aint1, aint, flag);
+      });
    }
 
-   private static String formatSignature(int[] signature, int colorCount) {
-      StringBuilder builder = new StringBuilder();
+   private static String formatSignature(int[] sig, int colorCount) {
+      StringBuilder stringbuilder = new StringBuilder();
 
-      for (int index = 0; index < colorCount; ++index) {
-         builder.append(signature[1 + index * 3]).append(',');
+      for(int i = 0; i < colorCount; ++i) {
+         stringbuilder.append(sig[1 + i * 3]).append(',');
       }
 
-      return builder.append('|')
-         .append(signature[1 + colorCount * 3])
-         .toString();
+      return stringbuilder.append('|').append(sig[1 + colorCount * 3]).toString();
    }
 
-   private static void checkCompatibility(int[] signature, int colorCount) {
+   private static void checkCompatibility(int[] sig, int colorCount) {
       if (!pipelineFormats.isEmpty()) {
-         String currentSignature = formatSignature(signature, colorCount);
-
-         if (!pipelineFormats.contains(currentSignature)
-            && reportedMismatches.add(currentSignature)) {
-            VulkanExtensionEmulator.LOGGER.warn(
-               "[Vulkan Extension Emulator] Render pass formats [{}] match no compiled pipeline {}. If you see corrupted or missing geometry, this is why.",
-               currentSignature,
-               pipelineFormats
-            );
+         String s = formatSignature(sig, colorCount);
+         if (!pipelineFormats.contains(s) && reportedMismatches.add(s)) {
+            VulkanExtensionEmulator.LOGGER.warn("[Vulkan Extension Emulator] Render pass formats [{}] match no compiled pipeline {}. If you see corrupted or missing geometry, this is why.", s, pipelineFormats);
          }
       }
+
    }
 
-   private static long createRenderPass(
-      int[] signature,
-      int[] colorSlots,
-      boolean hasDepth
-   ) {
-      int colorCount = signature[0];
-      int attachmentCount = 0;
+   private static long createRenderPass(int[] sig, int[] colorSlot, boolean hasDepth) {
+      int i = sig[0];
+      int j = 0;
+      int[] var5 = colorSlot;
+      int var6 = colorSlot.length;
 
-      for (int slot : colorSlots) {
-         if (slot != -1) {
-            ++attachmentCount;
+      for(int var7 = 0; var7 < var6; ++var7) {
+         int k = var5[var7];
+         if (k != -1) {
+            ++j;
          }
       }
 
       if (hasDepth) {
-         ++attachmentCount;
+         ++j;
       }
 
-      try (MemoryStack stack = MemoryStack.stackPush()) {
-         VkAttachmentDescription.Buffer attachments =
-            VkAttachmentDescription.calloc(
-               Math.max(attachmentCount, 1),
-               stack
-            );
+      MemoryStack memorystack = MemoryStack.stackPush();
 
-         VkAttachmentReference.Buffer colorReferences =
-            VkAttachmentReference.calloc(
-               Math.max(colorCount, 1),
-               stack
-            );
+      long l1;
+      label95: {
+         try {
+            VkAttachmentDescription.Buffer buffer = VkAttachmentDescription.calloc(Math.max(j, 1), memorystack);
+            VkAttachmentReference.Buffer buffer1 = VkAttachmentReference.calloc(Math.max(i, 1), memorystack);
 
-         for (int index = 0; index < colorCount; ++index) {
-            int slot = colorSlots[index];
-
-            colorReferences.get(index)
-               .attachment(slot)
-               .layout(slot == -1 ? 0 : LAYOUT_GENERAL);
-
-            if (slot != -1) {
-               attachments.get(slot)
-                  .format(signature[1 + index * 3])
-                  .samples(1)
-                  .loadOp(signature[2 + index * 3])
-                  .storeOp(signature[3 + index * 3])
-                  .stencilLoadOp(2)
-                  .stencilStoreOp(1)
-                  .initialLayout(LAYOUT_GENERAL)
-                  .finalLayout(LAYOUT_GENERAL);
-            }
-         }
-
-         VkAttachmentReference depthReference = null;
-
-         if (hasDepth) {
-            int slot = attachmentCount - 1;
-
-            attachments.get(slot)
-               .format(signature[1 + colorCount * 3])
-               .samples(1)
-               .loadOp(signature[2 + colorCount * 3])
-               .storeOp(signature[3 + colorCount * 3])
-               .stencilLoadOp(2)
-               .stencilStoreOp(1)
-               .initialLayout(LAYOUT_GENERAL)
-               .finalLayout(LAYOUT_GENERAL);
-
-            depthReference = VkAttachmentReference.calloc(stack)
-               .attachment(slot)
-               .layout(LAYOUT_GENERAL);
-         }
-
-         VkSubpassDescription.Buffer subpasses =
-            VkSubpassDescription.calloc(1, stack);
-
-         subpasses.get(0)
-            .pipelineBindPoint(0)
-            .colorAttachmentCount(colorCount)
-            .pColorAttachments(colorCount > 0 ? colorReferences : null)
-            .pDepthStencilAttachment(depthReference);
-
-         VkRenderPassCreateInfo createInfo =
-            VkRenderPassCreateInfo.calloc(stack)
-               .sType$Default()
-               .pSubpasses(subpasses);
-
-         if (attachmentCount > 0) {
-            attachments.limit(attachmentCount);
-            createInfo.pAttachments(attachments);
-         }
-
-         LongBuffer renderPassBuffer = stack.callocLong(1);
-
-         int result = VK10.vkCreateRenderPass(
-            device,
-            createInfo,
-            (VkAllocationCallbacks) null,
-            renderPassBuffer
-         );
-
-         if (result != 0) {
-            VulkanExtensionEmulator.LOGGER.error(
-               "[Vulkan Extension Emulator] vkCreateRenderPass failed: {}",
-               result
-            );
-            return 0L;
-         }
-
-         ++renderPassesCreated;
-         return renderPassBuffer.get(0);
-      } catch (Throwable exception) {
-         VulkanExtensionEmulator.LOGGER.error(
-            "[Vulkan Extension Emulator] Render pass creation failed",
-            exception
-         );
-         return 0L;
-      }
-   }
-
-   private static long createFramebuffer(
-      long renderPass,
-      long[] views,
-      int count,
-      int width,
-      int height
-   ) {
-      try (MemoryStack stack = MemoryStack.stackPush()) {
-         LongBuffer attachments = stack.callocLong(Math.max(count, 1));
-
-         for (int index = 0; index < count; ++index) {
-            attachments.put(index, views[index]);
-         }
-
-         attachments.limit(count);
-
-         VkFramebufferCreateInfo createInfo =
-            VkFramebufferCreateInfo.calloc(stack)
-               .sType$Default()
-               .renderPass(renderPass)
-               .width(width)
-               .height(height)
-               .layers(1);
-
-         if (count > 0) {
-            createInfo.pAttachments(attachments);
-         }
-
-         LongBuffer framebufferBuffer = stack.callocLong(1);
-
-         int result = VK10.vkCreateFramebuffer(
-            device,
-            createInfo,
-            (VkAllocationCallbacks) null,
-            framebufferBuffer
-         );
-
-         if (result != 0) {
-            VulkanExtensionEmulator.LOGGER.error(
-               "[Vulkan Extension Emulator] vkCreateFramebuffer failed: {} ({}x{}, {} attachment(s))",
-               result,
-               width,
-               height,
-               count
-            );
-            return 0L;
-         }
-
-         ++framebuffersCreated;
-         return framebufferBuffer.get(0);
-      } catch (Throwable exception) {
-         VulkanExtensionEmulator.LOGGER.error(
-            "[Vulkan Extension Emulator] Framebuffer creation failed",
-            exception
-         );
-         return 0L;
-      }
-   }
-
-   private static void trimFramebuffers() {
-      if (device != null) {
-         int initialSize = framebuffers.size();
-         Iterator<Map.Entry<Key, Long>> iterator =
-            framebuffers.entrySet().iterator();
-
-         while (iterator.hasNext()) {
-            Map.Entry<Key, Long> entry = iterator.next();
-
-            if (recentlyUsed.contains(entry.getKey())) {
-               continue;
+            int k1;
+            for(int j1 = 0; j1 < i; ++j1) {
+               k1 = colorSlot[j1];
+               ((VkAttachmentReference)buffer1.get(j1)).attachment(k1).layout(k1 == -1 ? 0 : 1);
+               if (k1 != -1) {
+                  ((VkAttachmentDescription)buffer.get(k1)).format(sig[1 + j1 * 3]).samples(1).loadOp(sig[2 + j1 * 3]).storeOp(sig[3 + j1 * 3]).stencilLoadOp(2).stencilStoreOp(1).initialLayout(1).finalLayout(1);
+               }
             }
 
-            pendingFramebuffers.put(
-               entry.getValue(),
-               lifecycleCounter + 3L
-            );
+            VkAttachmentReference vkattachmentreference = null;
+            if (hasDepth) {
+               k1 = j - 1;
+               ((VkAttachmentDescription)buffer.get(k1)).format(sig[1 + i * 3]).samples(1).loadOp(sig[2 + i * 3]).storeOp(sig[3 + i * 3]).stencilLoadOp(2).stencilStoreOp(1).initialLayout(1).finalLayout(1);
+               vkattachmentreference = VkAttachmentReference.calloc(memorystack).attachment(k1).layout(1);
+            }
 
+            VkSubpassDescription.Buffer buffer2 = VkSubpassDescription.calloc(1, memorystack);
+            ((VkSubpassDescription)buffer2.get(0)).pipelineBindPoint(0).colorAttachmentCount(i).pColorAttachments(i > 0 ? buffer1 : null).pDepthStencilAttachment(vkattachmentreference);
+            VkRenderPassCreateInfo vkrenderpasscreateinfo = VkRenderPassCreateInfo.calloc(memorystack).sType$Default().pSubpasses(buffer2);
+            if (j > 0) {
+               buffer.limit(j);
+               vkrenderpasscreateinfo.pAttachments(buffer);
+            }
+
+            LongBuffer longbuffer = memorystack.callocLong(1);
+            int i1 = VK10.vkCreateRenderPass(device, vkrenderpasscreateinfo, (VkAllocationCallbacks)null, longbuffer);
+            if (i1 != 0) {
+               VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] vkCreateRenderPass failed: {}", i1);
+               l1 = 0L;
+               break label95;
+            }
+
+            ++renderPassesCreated;
+            l1 = longbuffer.get(0);
+         } catch (Throwable var16) {
+            if (memorystack != null) {
+               try {
+                  memorystack.close();
+               } catch (Throwable var15) {
+                  var16.addSuppressed(var15);
+               }
+            }
+
+            throw var16;
+         }
+
+         if (memorystack != null) {
+            memorystack.close();
+         }
+
+         return l1;
+      }
+
+      if (memorystack != null) {
+         memorystack.close();
+      }
+
+      return l1;
+   }
+
+   private static long createFramebuffer(long renderPass, long[] views, int count, int width, int height) {
+      MemoryStack memorystack = MemoryStack.stackPush();
+
+      long k;
+      label57: {
+         try {
+            LongBuffer longbuffer = memorystack.callocLong(Math.max(count, 1));
+
+            for(int i = 0; i < count; ++i) {
+               longbuffer.put(i, views[i]);
+            }
+
+            longbuffer.limit(count);
+            VkFramebufferCreateInfo vkframebuffercreateinfo = VkFramebufferCreateInfo.calloc(memorystack).sType$Default().renderPass(renderPass).width(width).height(height).layers(1);
+            if (count > 0) {
+               vkframebuffercreateinfo.pAttachments(longbuffer);
+            }
+
+            LongBuffer longbuffer1 = memorystack.callocLong(1);
+            int j = VK10.vkCreateFramebuffer(device, vkframebuffercreateinfo, (VkAllocationCallbacks)null, longbuffer1);
+            if (j != 0) {
+               VulkanExtensionEmulator.LOGGER.error("[Vulkan Extension Emulator] vkCreateFramebuffer failed: {} ({}x{}, {} attachment(s))", new Object[]{j, width, height, count});
+               k = 0L;
+               break label57;
+            }
+
+            ++framebuffersCreated;
+            k = longbuffer1.get(0);
+         } catch (Throwable var14) {
+            if (memorystack != null) {
+               try {
+                  memorystack.close();
+               } catch (Throwable var13) {
+                  var14.addSuppressed(var13);
+               }
+            }
+
+            throw var14;
+         }
+      }
+
+if (memorystack != null) {
+    memorystack.close();
+}
+
+return k;
+}
+
+private static void trimFramebuffers() {
+    if (device != null) {
+        int i = framebuffers.size();
+        Iterator iterator = framebuffers.entrySet().iterator();
+
+        while (true) {
+            Map.Entry entry;
+            do {
+                if (!iterator.hasNext()) {
+                    viewToFramebuffers.entrySet().removeIf((ex) -> {
+                        return ((List)((Map.Entry)ex).getValue()).isEmpty();
+                    });
+                    recentlyUsed.clear();
+                    if (i != framebuffers.size() && !loggedTrim) {
+                        loggedTrim = true;
+                        VulkanExtensionEmulator.LOGGER.info("[Vulkan Extension Emulator] Framebuffer cache trimmed {} -> {} (bounded at {}); further trims are silent", new Object[]{i, framebuffers.size(), 256});
+                    }
+
+                    return;
+                }
+
+                entry = (Map.Entry)iterator.next();
+            } while (recentlyUsed.contains(entry.getKey()));
+
+            pendingFramebuffers.put((Long)entry.getValue(), currentSubmitIndex + 3L);
             iterator.remove();
+            StutterLog.noteFramebufferEvict();
+            Iterator var3 = viewToFramebuffers.values().iterator();
 
-            for (List<Key> keys : viewToFramebuffers.values()) {
-               keys.remove(entry.getKey());
+            while(var3.hasNext()) {
+               List list = (List)var3.next();
+               list.remove(entry.getKey());
             }
          }
-
-         viewToFramebuffers.entrySet().removeIf(
-            entry -> entry.getValue().isEmpty()
-         );
-
-         recentlyUsed.clear();
-
-         if (initialSize != framebuffers.size() && !loggedTrim) {
-            loggedTrim = true;
-
-            VulkanExtensionEmulator.LOGGER.info(
-               "[Vulkan Extension Emulator] Framebuffer cache trimmed {} -> {} (bounded at {}); further trims are silent",
-               initialSize,
-               framebuffers.size(),
-               64
-            );
-         }
       }
+   }
+
+   public static void noteSubmit(long submitIndex) {
+      currentSubmitIndex = submitIndex;
    }
 
    public static void invalidateAll() {
       if (device != null) {
-         for (long framebuffer : framebuffers.values()) {
-            pendingFramebuffers.put(
-               framebuffer,
-               lifecycleCounter + 3L
-            );
+         Iterator var0 = framebuffers.values().iterator();
+
+         while(var0.hasNext()) {
+            long i = (Long)var0.next();
+            pendingFramebuffers.put(i, currentSubmitIndex + 3L);
          }
 
          framebuffers.clear();
          viewToFramebuffers.clear();
          recentlyUsed.clear();
       }
+
    }
 
    public static void onImageViewDestroyed(long view) {
       if (device != null && view != 0L) {
-         List<Key> keys = viewToFramebuffers.remove(view);
+         List list = (List)viewToFramebuffers.remove(view);
+         if (list != null) {
+            Iterator var3 = list.iterator();
 
-         if (keys != null) {
-            for (Key key : keys) {
-               Long framebuffer = framebuffers.remove(key);
+            while(true) {
+               Key dynamicrenderingemulation$key;
+               Long olong;
+               do {
+                  if (!var3.hasNext()) {
+                     return;
+                  }
 
-               if (framebuffer == null) {
-                  continue;
-               }
+                  dynamicrenderingemulation$key = (Key)var3.next();
+                  olong = (Long)framebuffers.remove(dynamicrenderingemulation$key);
+               } while(olong == null);
 
-               pendingFramebuffers.put(
-                  framebuffer,
-                  lifecycleCounter + 3L
-               );
+               pendingFramebuffers.put(olong, currentSubmitIndex + 3L);
+               Iterator iterator = viewToFramebuffers.entrySet().iterator();
 
-               Iterator<Map.Entry<Long, List<Key>>> iterator =
-                  viewToFramebuffers.entrySet().iterator();
-
-               while (iterator.hasNext()) {
-                  Map.Entry<Long, List<Key>> entry = iterator.next();
-                  entry.getValue().remove(key);
-
-                  if (entry.getValue().isEmpty()) {
+               while(iterator.hasNext()) {
+                  Map.Entry entry = (Map.Entry)iterator.next();
+                  ((List)entry.getValue()).remove(dynamicrenderingemulation$key);
+                  if (((List)entry.getValue()).isEmpty()) {
                      iterator.remove();
                   }
                }
             }
          }
       }
+
    }
 
    public static void drainPendingDestroys(long completedSubmitIndex) {
       if (device != null && !pendingFramebuffers.isEmpty()) {
-         ++lifecycleCounter;
-         long safe = lifecycleCounter;
+         long safe = completedSubmitIndex - 3L;
+         Iterator iterator = pendingFramebuffers.entrySet().iterator();
 
-         Iterator<Map.Entry<Long, Long>> iterator =
-            pendingFramebuffers.entrySet().iterator();
-
-         while (iterator.hasNext()) {
-            Map.Entry<Long, Long> entry = iterator.next();
-
-            if (entry.getValue() <= safe) {
+         while(iterator.hasNext()) {
+            Map.Entry entry = (Map.Entry)iterator.next();
+            if ((Long)entry.getValue() <= safe) {
                try {
-                  VK10.vkDestroyFramebuffer(
-                     device,
-                     entry.getKey(),
-                     (VkAllocationCallbacks) null
-                  );
+                  VK10.vkDestroyFramebuffer(device, (Long)entry.getKey(), (VkAllocationCallbacks)null);
                   ++framebuffersEvicted;
-               } catch (Throwable ignored) {
+               } catch (Throwable var7) {
                }
 
                iterator.remove();
             }
          }
+
       }
    }
 
-
-private static GpuTextureView viewAt(
-   RenderPassDescriptor descriptor,
-   int index
-) {
-   if (descriptor == null) {
-      return null;
+   private static GpuTextureView viewAt(RenderPassDescriptor descriptor, int index) {
+      if (descriptor == null) {
+         return null;
+      } else {
+         List list = descriptor.colorAttachments();
+         if (index >= list.size()) {
+            return null;
+         } else {
+            RenderPassDescriptor.Attachment attachment = (RenderPassDescriptor.Attachment)list.get(index);
+            return attachment == null ? null : attachment.textureView();
+         }
+      }
    }
 
-   var attachments = descriptor.colorAttachments();
-
-   if (index >= attachments.size()) {
-      return null;
-   }
-
-   var attachment = attachments.get(index);
-
-   return attachment == null ? null : attachment.textureView();
-}
-
-   private static int colorFormat(
-      RenderPassDescriptor descriptor,
-      int index
-   ) {
-      GpuTextureView textureView = viewAt(descriptor, index);
-
-      return textureView == null
-         ? 0
-         : VulkanConst.toVk(textureView.texture().getFormat());
+   private static int colorFormat(RenderPassDescriptor descriptor, int index) {
+      GpuTextureView gputextureview = viewAt(descriptor, index);
+      return gputextureview == null ? 0 : VulkanConst.toVk(gputextureview.texture().getFormat());
    }
 
    private static int depthFormat(RenderPassDescriptor descriptor) {
-      return descriptor != null && descriptor.depthAttachment() != null
-         ? VulkanConst.toVk(
-            descriptor.depthAttachment().textureView().texture().getFormat()
-         )
-         : 0;
+      return descriptor != null && descriptor.depthAttachment() != null ? VulkanConst.toVk(descriptor.depthAttachment().textureView().texture().getFormat()) : 0;
    }
 
    private static final class Key {
@@ -877,34 +709,37 @@ private static GpuTextureView viewAt(
       private final int hash;
 
       Key(int[] ints) {
-         this.ints = ints.clone();
+         this.ints = ints;
          this.longs = null;
-         this.hash = Arrays.hashCode(this.ints);
+         this.hash = Arrays.hashCode(ints);
       }
 
       Key(long[] longs) {
          this.ints = null;
-         this.longs = longs.clone();
-         this.hash = Arrays.hashCode(this.longs);
+         this.longs = longs;
+         this.hash = Arrays.hashCode(longs);
       }
 
-      @Override
-      public boolean equals(Object object) {
-         if (this == object) {
+      public boolean equals(Object o) {
+         if (this == o) {
             return true;
-         }
+         } else {
+            boolean var10000;
+            if (o instanceof Key) {
+               Key dynamicrenderingemulation$key = (Key)o;
+               if (dynamicrenderingemulation$key.hash == this.hash) {
+                  var10000 = Arrays.equals(this.ints, dynamicrenderingemulation$key.ints) && Arrays.equals(this.longs, dynamicrenderingemulation$key.longs);
+                  return var10000;
+               }
+            }
 
-         if (!(object instanceof Key other) || other.hash != hash) {
-            return false;
+            var10000 = false;
+            return var10000;
          }
-
-         return Arrays.equals(ints, other.ints)
-            && Arrays.equals(longs, other.longs);
       }
 
-      @Override
       public int hashCode() {
-         return hash;
+         return this.hash;
       }
    }
 }
