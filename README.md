@@ -19,7 +19,7 @@ Also This Mod Has A Fallback System According To Your Graphics Driver Abilities.
 
 - This Mod Is Still In Experimental Stage So Bugs Can Occur.
 
-- This Mod Is Made To Work On As Much Devices As Possible, However It's Not Guaranteed To Work On All Devices. Especially, Lower Chances On Older Hardware.
+- This Mod Is Made To Work On As Much Devices As Possible, However It's Not Guaranteed To Work On All Devices.
 
 - Performance May Vary Depending On Device, GPU And Graphics Driver.
 
