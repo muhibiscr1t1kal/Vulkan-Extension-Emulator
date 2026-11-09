@@ -1,0 +1,51 @@
+modLoader = "javafml"
+loaderVersion = "[0,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/muhibiscr1t1kal/Vulkan-Extension-Emulator/issues"
+
+[[mods]]
+modId = "vulkanextensionemulator"
+version = "0.0.4"
+displayName = "Vulkan Extension Emulator (VEE)"
+displayURL = "https://github.com/muhibiscr1t1kal/Vulkan-Extension-Emulator"
+logoFile = "assets/vulkanextensionemulator/icon.png"
+authors = "MuhibIsCr1t1kal"
+description = '''A Vulkan Compatibility Layer That Allows The Usage Of Vulkan API On Devices With Unsupported Hardware By Emulating The Missing Vulkan Extensions.'''
+
+[[mixins]]
+config = "vulkanextensionemulator.mixins.json"
+
+[[dependencies.vulkanextensionemulator]]
+modId = "neoforge"
+type = "required"
+versionRange = "*"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.vulkanextensionemulator]]
+modId = "minecraft"
+type = "required"
+versionRange = "[26.2]"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.vulkanextensionemulator]]
+modId = "entity_model_features"
+type = "required"
+versionRange = "*"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.vulkanextensionemulator]]
+modId = "moreculling"
+type = "required"
+versionRange = "*"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.vulkanextensionemulator]]
+modId = "fabric_api"
+type = "required"
+versionRange = "*"
+ordering = "NONE"
+side = "CLIENT"
