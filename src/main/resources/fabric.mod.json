@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "vulkanextensionemulator",
+  "version": "0.0.4",
+  "name": "Vulkan Extension Emulator (VEE)",
+  "description": "A Vulkan Compatibility Layer That Allows The Usage Of Vulkan API On Devices With Unsupported Hardware By Emulating The Missing Vulkan Extensions.",
+  "authors": [
+    "MuhibIsCr1t1kal"
+  ],
+  "license": "MIT",
+  "icon": "assets/vulkanextensionemulator/icon.png",
+  "environment": "client",
+  "contact": {
+    "homepage": "https://github.com/muhibiscr1t1kal/Vulkan-Extension-Emulator",
+    "sources": "https://github.com/muhibiscr1t1kal/Vulkan-Extension-Emulator",
+    "issues": "https://github.com/muhibiscr1t1kal/Vulkan-Extension-Emulator/issues"
+  },
+  "entrypoints": {
+    "client": [
+      "com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator",
+      "com.muhibiscr1t1kal.vulkanextensionemulator.terrain.TerrainRebuildEnhancement"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*",
+    "entity_model_features": "*",
+    "moreculling": "*"
+  },
+  "mixins": [
+    "vulkanextensionemulator.mixins.json"
+  ]
+}
