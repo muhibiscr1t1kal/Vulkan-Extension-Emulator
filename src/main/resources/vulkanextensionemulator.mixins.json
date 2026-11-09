@@ -30,8 +30,7 @@
     "VulkanBackendMixin",
     "VulkanFeatureMixin",
     "VulkanPhysicalDeviceMixin",
-    "VulkanRenderPipelineAccessor",
-    "LoaderTickBridgeMixin"
+    "VulkanRenderPipelineAccessor"
   ],
   "injectors": {
     "defaultRequire": 0
