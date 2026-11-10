@@ -2,7 +2,7 @@
 
 # Vulkan Extension Emulator (VEE)
 
-A Minecraft Mod That Allows The Usage Of Vulkan API On Devices With Unsupported Hardware By Emulating The Missing Vulkan Extensions.
+A Vulkan Compatibility Layer That Allows The Usage Of Vulkan API On Devices With Unsupported Hardware By Emulating The Missing Vulkan Extensions.
 
 # ❔ Why This Mod Is Made?
 Following With The Release Of Minecraft 26.2 And It's Snapshots, Now The Game Features A Vulkan API To Choose As Graphics API. The Goal Of Adding Vulkan Is To Improve The Performance And Stability Of The Game. While Most Modern PCs And Laptops Support Vulkan, Some Older Devices Don't. Vulkan Extension Emulator (VEE) Allows Players With Unsupported Devices And Missing Vulkan Extensions To Play The Game With Vulkan API. Also Mojang Has Officially Stated That After Enough Testing, Vulkan Will Be The Main Graphics API And OpenGL Will Be Removed. This Mod Is Aimed To Make Vulkan API Useable Across A More Wider Range Of Devices.
