@@ -36,6 +36,6 @@ This Mod Is Also Supported With Using Sodium With Vulkan API. So It's Recommende
 VEE Fully Supports Shaders. Download [Vitrail Shaders](https://modrinth.com/project/oSIKhgz3) And Sodium And Use Shaders. But If You Encounter Any Graphical Issues Or Bugs, That Could Be Caused By Device GPU Weakness. Although It's Not Supposed To Happen.
 
 # ✅ Permissions
-The Mod Is Mainly Made To Help Players, So It's Open-Source And Licensed MIT.
+The Mod Is Mainly Made To Help Players, So It's Open-Source And Licensed MIT. What About Modpack Permission? GRANTED!
 
 Thank You And Enjoy!
