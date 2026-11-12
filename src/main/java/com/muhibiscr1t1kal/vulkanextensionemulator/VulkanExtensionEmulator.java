@@ -1,6 +1,6 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator;
 
-import com.mojang.blaze3d.vulkan.init.VulkanFeature;
+import com.mojang.renderpearl.backend.vulkan.init.VulkanFeature;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Emulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PipelineDepth;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.StutterLog;
