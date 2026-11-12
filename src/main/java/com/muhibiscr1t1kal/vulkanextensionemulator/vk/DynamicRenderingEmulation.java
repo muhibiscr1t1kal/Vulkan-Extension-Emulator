@@ -1,8 +1,8 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.vk;
 
-import com.mojang.blaze3d.systems.RenderPassDescriptor;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vulkan.VulkanConst;
+import com.mojang.renderpearl.api.commands.RenderPassDescriptor;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.vulkan.VulkanConst;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
