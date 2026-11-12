@@ -1,10 +1,10 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.Destroyable;
-import com.mojang.blaze3d.vulkan.DestructionQueue;
-import com.mojang.blaze3d.vulkan.VulkanCommandEncoder;
-import com.mojang.blaze3d.vulkan.VulkanCommandPool;
-import com.mojang.blaze3d.vulkan.VulkanDevice;
+import com.mojang.renderpearl.backend.vulkan.Destroyable;
+import com.mojang.renderpearl.backend.vulkan.DestructionQueue;
+import com.mojang.renderpearl.backend.vulkan.VulkanCommandEncoder;
+import com.mojang.renderpearl.backend.vulkan.VulkanCommandPool;
+import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PipelineDepth;
 import org.spongepowered.asm.mixin.Final;
@@ -117,7 +117,7 @@ public abstract class PipelineDepthMixin {
       method = {"submit"},
       at = @At(
    value = "INVOKE",
-   target = "Lcom/mojang/blaze3d/vulkan/VulkanCommandEncoder;awaitSubmitCompletion(JJ)Z"
+   target = "Lcom/mojang/renderpearl/backend/vulkan/VulkanCommandEncoder;awaitSubmitCompletion(JJ)Z"
 ),
       index = 0,
       require = 0

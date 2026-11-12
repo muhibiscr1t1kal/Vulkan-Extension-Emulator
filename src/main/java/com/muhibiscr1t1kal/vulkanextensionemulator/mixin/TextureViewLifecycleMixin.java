@@ -1,8 +1,8 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanConst;
-import com.mojang.blaze3d.vulkan.VulkanGpuTexture;
-import com.mojang.blaze3d.vulkan.VulkanGpuTextureView;
+import com.mojang.renderpearl.backend.vulkan.VulkanConst;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuTextureView;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.DynamicRenderingEmulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PushDescriptorEmulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.ViewRegistry;
@@ -22,7 +22,7 @@ public abstract class TextureViewLifecycleMixin {
     public abstract VulkanGpuTexture texture();
 
     @Inject(
-        method = "<init>(Lcom/mojang/blaze3d/vulkan/VulkanDevice;Lcom/mojang/blaze3d/vulkan/VulkanGpuTexture;II)V",
+        method = "<init>(Lcom/mojang/renderpearl/backend/vulkan/VulkanDevice;Lcom/mojang/renderpearl/backend/vulkan/VulkanGpuTexture;II)V",
         at = @At("TAIL")
     )
     private void vulkanextensionemulator$registerView(CallbackInfo ci) {

@@ -1,8 +1,9 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanRenderPass;
-import com.mojang.blaze3d.vulkan.VulkanRenderPipeline;
+import com.mojang.renderpearl.backend.vulkan.VulkanRenderPass;
+import com.mojang.renderpearl.backend.vulkan.VulkanRenderPipeline;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
+import com.muhibiscr1t1kal.vulkanextensionemulator.mixin.VulkanRenderPipelineAccessor;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Emulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.NativeCaps;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PushDescriptorEmulation;
@@ -63,8 +64,10 @@ public abstract class PushDescriptorMixin {
     ) {
         long descriptorSetLayout = 0L;
 
-        if (this.pipeline != null && this.pipeline.layout() != null) {
-            descriptorSetLayout = this.pipeline.layout().handle();
+        if (this.pipeline != null) {
+            descriptorSetLayout =
+                ((VulkanRenderPipelineAccessor) (Object) this.pipeline)
+                    .vulkanextensionemulator$descriptorSetLayout();
         }
 
         PushDescriptorEmulation.pushDescriptorSet(

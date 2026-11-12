@@ -1,6 +1,6 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanRenderPipeline;
+import com.mojang.renderpearl.backend.vulkan.VulkanRenderPipeline;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.DynamicRenderingEmulation;
 import java.nio.LongBuffer;
 import org.lwjgl.vulkan.VkAllocationCallbacks;

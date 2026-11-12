@@ -1,6 +1,6 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanGpuSurface;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuSurface;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.BarrierCoalescer;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.DynamicRenderingEmulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PushDescriptorEmulation;

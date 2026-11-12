@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(
-   targets = {"com.mojang.blaze3d.vulkan.VulkanQueue$Submission"}
+   targets = {"com.mojang.renderpearl.backend.vulkan.VulkanQueue$Submission"}
 )
 public abstract class Sync2SubmitMixin {
    @Redirect(

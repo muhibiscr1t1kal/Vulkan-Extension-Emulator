@@ -1,6 +1,6 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanDevice;
+import com.mojang.renderpearl.backend.vulkan.VulkanDevice;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.BarrierCoalescer;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Core12Emulation;

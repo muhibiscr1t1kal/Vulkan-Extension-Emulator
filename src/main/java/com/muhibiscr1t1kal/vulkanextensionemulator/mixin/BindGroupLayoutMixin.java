@@ -1,6 +1,6 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.vulkan.VulkanRenderPipeline;
+import com.mojang.renderpearl.backend.vulkan.VulkanRenderPipeline;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Emulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.PushDescriptorEmulation;

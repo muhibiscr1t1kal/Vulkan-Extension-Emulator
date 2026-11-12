@@ -1,16 +1,14 @@
 package com.muhibiscr1t1kal.vulkanextensionemulator.mixin;
 
-import com.mojang.blaze3d.systems.BackendCreationException;
-import com.mojang.blaze3d.vulkan.VulkanBackend;
-import com.mojang.blaze3d.vulkan.VulkanPhysicalDevice;
-import com.mojang.blaze3d.vulkan.init.VulkanFeature;
-import com.mojang.blaze3d.vulkan.init.VulkanPNextStruct;
+import com.mojang.renderpearl.api.device.BackendCreationException;
+import com.mojang.renderpearl.backend.vulkan.VulkanBackend;
+import com.mojang.renderpearl.backend.vulkan.VulkanPhysicalDevice;
+import com.mojang.renderpearl.backend.vulkan.init.FeatureSet;
+import com.mojang.renderpearl.backend.vulkan.init.VulkanFeature;
+import com.mojang.renderpearl.backend.vulkan.init.VulkanPNextStruct;
 import com.muhibiscr1t1kal.vulkanextensionemulator.VulkanExtensionEmulator;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.Emulation;
 import com.muhibiscr1t1kal.vulkanextensionemulator.vk.VulkanProbe;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,6 +17,7 @@ import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceHostQueryResetFeaturesEXT;
 import org.lwjgl.vulkan.VkPhysicalDeviceTimelineSemaphoreFeaturesKHR;
+import org.lwjgl.vulkan.VkPhysicalDeviceVulkan12Features;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,9 +26,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin({VulkanBackend.class})
 public abstract class VulkanBackendMixin {
-
-   private static final int VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR = 1000207000;
-   private static final int VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT = 1000261000;
 
    @Inject(
       method = {"deviceMeetsFeatureQueryRequirements"},
@@ -53,184 +49,146 @@ public abstract class VulkanBackendMixin {
    }
 
    @Inject(
-      method = {"isDeviceSuitable"},
+      method = {"checkDeviceSuitability"},
       at = {@At("RETURN")},
       cancellable = true,
       require = 0
    )
    private static void vulkanextensionemulator$forceDeviceSuitable(
       VkPhysicalDevice device,
-      CallbackInfoReturnable<Boolean> cir
+      Set<?> required,
+      Set<?> requiredIfAvailable,
+      CallbackInfoReturnable<BackendCreationException> cir
    ) {
-      if (cir.getReturnValueZ()
+      BackendCreationException backendCreationException = cir.getReturnValue();
+
+      if (backendCreationException == null
             || !VulkanExtensionEmulator.config().bypassApiVersionCheck) {
          return;
       }
 
-      try {
-         Method method = VulkanBackend.class.getDeclaredMethod(
-            "throwForMissingRequrements",
-            VkPhysicalDevice.class
-         );
+      List<String> missingCapabilities =
+         backendCreationException.getMissingCapabilities();
 
-         method.setAccessible(true);
-         method.invoke(null, device);
+      if (missingCapabilities == null) {
+         missingCapabilities = List.of();
+      }
 
-      } catch (InvocationTargetException invocationtargetexception) {
+      Set<String> claimedCapabilities = new LinkedHashSet<>();
+      boolean allEmulatable = true;
 
-         Throwable cause = invocationtargetexception.getCause();
+      Iterator<String> iterator = missingCapabilities.iterator();
 
-         if (cause instanceof BackendCreationException backendcreationexception) {
+      while (iterator.hasNext()) {
+         String capability = iterator.next();
 
-            List<String> list = backendcreationexception.getMissingCapabilities();
+         if (!capability.equals("VULKAN_CORE_1_2")
+               && !capability.equals("VULKAN_CORE_1_1")) {
 
-            if (list == null) {
-               list = List.of();
-            }
+            if (VulkanExtensionEmulator.canEmulateExtension(capability)) {
+               Emulation.markExtension(capability);
+               claimedCapabilities.add(capability);
 
-            Set<String> set = new LinkedHashSet<>();
-            boolean flag = true;
+            } else if (VulkanExtensionEmulator.canEmulateFeature(capability)) {
+               Emulation.markFeature(capability);
+               claimedCapabilities.add(capability);
 
-            Iterator<String> iterator = list.iterator();
-
-            while (iterator.hasNext()) {
-               String s = iterator.next();
-
-               if (!s.equals("VULKAN_CORE_1_2")
-                     && !s.equals("VULKAN_CORE_1_1")) {
-
-                  if (VulkanExtensionEmulator.canEmulateExtension(s)) {
-                     Emulation.markExtension(s);
-                     set.add(s);
-
-                  } else if (VulkanExtensionEmulator.canEmulateFeature(s)) {
-                     Emulation.markFeature(s);
-                     set.add(s);
-
-                  } else {
-                     flag = false;
-                     Emulation.markUnemulatable();
-                  }
-
-               } else {
-                  set.add(s);
-               }
-            }
-
-            if (!set.isEmpty() && flag) {
-
-               VulkanExtensionEmulator.LOGGER.info(
-                  "[Vulkan Extension Emulator] Claiming {} missing capability/capabilities as emulated: {}",
-                  set.size(),
-                  set
-               );
-
-               VulkanExtensionEmulator.LOGGER.info(
-                  "[Vulkan Extension Emulator] Forcing device suitable — all gaps are emulated"
-               );
-
-               Emulation.setGateOpened(true);
-               cir.setReturnValue(true);
-
-            } else if (!flag) {
-
-               VulkanExtensionEmulator.LOGGER.warn(
-                  "[Vulkan Extension Emulator] Device has non-emulatable gaps; leaving rejection intact"
-               );
+            } else {
+               allEmulatable = false;
+               Emulation.markUnemulatable();
             }
 
          } else {
-            throw new RuntimeException(cause);
+            claimedCapabilities.add(capability);
          }
+      }
 
-      } catch (ReflectiveOperationException reflectionexception) {
-         throw new RuntimeException(
-            "Failed to invoke VulkanBackend.throwForMissingRequrements",
-            reflectionexception
+      if (!claimedCapabilities.isEmpty() && allEmulatable) {
+
+         VulkanExtensionEmulator.LOGGER.info(
+            "[Vulkan Extension Emulator] Claiming {} missing capability/capabilities as emulated: {}",
+            claimedCapabilities.size(),
+            claimedCapabilities
+         );
+
+         VulkanExtensionEmulator.LOGGER.info(
+            "[Vulkan Extension Emulator] Forcing device suitable — all gaps are emulated"
+         );
+
+         Emulation.setGateOpened(true);
+         cir.setReturnValue(null);
+
+      } else if (!allEmulatable) {
+
+         VulkanExtensionEmulator.LOGGER.warn(
+            "[Vulkan Extension Emulator] Device has non-emulatable gaps; leaving rejection intact"
          );
       }
    }
 
    @ModifyVariable(
       method = {
-         "createDevice(Ljava/util/Collection;Lcom/mojang/blaze3d/vulkan/VulkanPhysicalDevice;Ljava/util/Set;)Lorg/lwjgl/vulkan/VkDevice;"
+         "createDevice(Lcom/mojang/renderpearl/backend/vulkan/init/FeatureSet;Lcom/mojang/renderpearl/backend/vulkan/VulkanPhysicalDevice;)Lorg/lwjgl/vulkan/VkDevice;"
       },
       at = @At("HEAD"),
       argsOnly = true,
       index = 0,
       require = 0
    )
-   private static Collection<String> vulkanextensionemulator$stripEmulatedFromDeviceCreate(
-      Collection<String> deviceExtensions
+   private static FeatureSet vulkanextensionemulator$stripEmulatedFromDeviceCreate(
+      FeatureSet featureSet
    ) {
-      if (deviceExtensions == null) {
-         return deviceExtensions;
+      if (featureSet == null) {
+         return featureSet;
       }
 
       if (VulkanExtensionEmulator.forcePushEmulation()) {
          Emulation.markExtension("VK_KHR_push_descriptor");
       }
 
-      Set<String> set = new LinkedHashSet<>();
-      Set<String> set1 = new LinkedHashSet<>();
+      Set<String> strippedExtensions = new LinkedHashSet<>();
+      Set<String> deviceExtensions = new LinkedHashSet<>();
 
-      Iterator<String> iterator = deviceExtensions.iterator();
+      Iterator<String> extensionIterator = featureSet.extensions().iterator();
 
-      while (iterator.hasNext()) {
-         String s = iterator.next();
+      while (extensionIterator.hasNext()) {
+         String extension = extensionIterator.next();
 
-         if (Emulation.mustStripFromDeviceCreate(s)) {
-            set.add(s);
+         if (Emulation.mustStripFromDeviceCreate(extension)) {
+            strippedExtensions.add(extension);
          } else {
-            set1.add(s);
+            deviceExtensions.add(extension);
          }
       }
 
-      if (!set.isEmpty()) {
+      if (!strippedExtensions.isEmpty()) {
          VulkanExtensionEmulator.LOGGER.info(
             "[Vulkan Extension Emulator] Stripped {} emulated extension(s) from vkCreateDevice: {}",
-            set.size(),
-            set
+            strippedExtensions.size(),
+            strippedExtensions
          );
       }
 
-      Set<String> set2 = new LinkedHashSet<>();
-      Iterator<String> iterator1 = Emulation.substituteExtensions().iterator();
+      Set<String> addedExtensions = new LinkedHashSet<>();
 
-      while (iterator1.hasNext()) {
-         String s1 = iterator1.next();
+      Iterator<String> substituteIterator =
+         Emulation.substituteExtensions().iterator();
 
-         if (!set1.contains(s1)) {
-            set1.add(s1);
-            set2.add(s1);
+      while (substituteIterator.hasNext()) {
+         String substitute = substituteIterator.next();
+
+         if (!deviceExtensions.contains(substitute)) {
+            deviceExtensions.add(substitute);
+            addedExtensions.add(substitute);
          }
       }
 
-      if (!set2.isEmpty()) {
+      if (!addedExtensions.isEmpty()) {
          VulkanExtensionEmulator.LOGGER.info(
             "[Vulkan Extension Emulator] Added {} substitute extension(s) for VK1.2 core functions: {}",
-            set2.size(),
-            set2
+            addedExtensions.size(),
+            addedExtensions
          );
-      }
-
-      return set1;
-   }
-
-   @ModifyVariable(
-      method = {
-         "createDevice(Ljava/util/Collection;Lcom/mojang/blaze3d/vulkan/VulkanPhysicalDevice;Ljava/util/Set;)Lorg/lwjgl/vulkan/VkDevice;"
-      },
-      at = @At("HEAD"),
-      argsOnly = true,
-      index = 2,
-      require = 0
-   )
-   private static Set<VulkanFeature> vulkanextensionemulator$filterDeviceFeatures(
-      Set<VulkanFeature> vulkanFeatures
-   ) {
-      if (vulkanFeatures == null) {
-         return vulkanFeatures;
       }
 
       VulkanProbe.Result result = VulkanExtensionEmulator.probeResult();
@@ -254,100 +212,108 @@ public abstract class VulkanBackendMixin {
             result.extensions().get("VK_EXT_host_query_reset")
          );
 
-      Set<VulkanFeature> set3 = new LinkedHashSet<>();
-      Set<String> set4 = new LinkedHashSet<>();
-      Set<String> set5 = new LinkedHashSet<>();
+      Set<VulkanFeature> deviceFeatures = new LinkedHashSet<>();
+      Set<String> emulatedFeatures = new LinkedHashSet<>();
+      Set<String> routedFeatures = new LinkedHashSet<>();
 
-      Iterator<VulkanFeature> iterator = vulkanFeatures.iterator();
+      Iterator<VulkanFeature> featureIterator =
+         featureSet.features().iterator();
 
-      while (iterator.hasNext()) {
-         VulkanFeature vulkanfeature = iterator.next();
+      while (featureIterator.hasNext()) {
+         VulkanFeature vulkanFeature = featureIterator.next();
 
-         String s2 = VulkanExtensionEmulator.featureName(vulkanfeature);
+         String featureName =
+            VulkanExtensionEmulator.featureName(vulkanFeature);
 
-         if (s2 == null) {
-            set3.add(vulkanfeature);
+         if (featureName == null) {
+            deviceFeatures.add(vulkanFeature);
 
          } else {
 
             if (!versionAtLeast12
-                  && vulkanfeature.struct() == VulkanBackend.VK12_FEATURES_STRUCT) {
+                  && vulkanFeature.struct() != null
+                  && vulkanFeature.struct().pNextStructClass()
+                     == VkPhysicalDeviceVulkan12Features.class) {
 
-               if (s2.equals("timelineSemaphore") && timelineExtension) {
+               if (featureName.equals("timelineSemaphore")
+                     && timelineExtension) {
 
-                  set3.add(
+                  deviceFeatures.add(
                      new VulkanFeature(
                         new VulkanPNextStruct(
-                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR,
-                           VkPhysicalDeviceTimelineSemaphoreFeaturesKHR.SIZEOF
+                           VkPhysicalDeviceTimelineSemaphoreFeaturesKHR.class
                         ),
-                        s2,
+                        featureName,
                         VkPhysicalDeviceTimelineSemaphoreFeaturesKHR.TIMELINESEMAPHORE
                      )
                   );
 
-                  set5.add(s2);
+                  routedFeatures.add(featureName);
                   continue;
                }
 
-               if (s2.equals("hostQueryReset") && hostResetExtension) {
+               if (featureName.equals("hostQueryReset")
+                     && hostResetExtension) {
 
-                  set3.add(
+                  deviceFeatures.add(
                      new VulkanFeature(
                         new VulkanPNextStruct(
-                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT,
-                           VkPhysicalDeviceHostQueryResetFeaturesEXT.SIZEOF
+                           VkPhysicalDeviceHostQueryResetFeaturesEXT.class
                         ),
-                        s2,
+                        featureName,
                         VkPhysicalDeviceHostQueryResetFeaturesEXT.HOSTQUERYRESET
                      )
                   );
 
-                  set5.add(s2);
+                  routedFeatures.add(featureName);
                   continue;
                }
             }
 
-            if (VulkanExtensionEmulator.canEmulateFeature(s2)) {
-               Emulation.markFeature(s2);
-               set4.add(s2);
+            if (VulkanExtensionEmulator.canEmulateFeature(featureName)) {
+               Emulation.markFeature(featureName);
+               emulatedFeatures.add(featureName);
 
             } else {
-               set3.add(vulkanfeature);
+               deviceFeatures.add(vulkanFeature);
             }
          }
       }
 
-      if (!set5.isEmpty()) {
+      if (!routedFeatures.isEmpty()) {
          VulkanExtensionEmulator.LOGGER.info(
             "[Vulkan Extension Emulator] Routed {} core-1.2 feature(s) to KHR/EXT structs on this Vulkan 1.1 device: {}",
-            set5.size(),
-            set5
+            routedFeatures.size(),
+            routedFeatures
          );
       }
 
-      if (!set4.isEmpty()) {
+      if (!emulatedFeatures.isEmpty()) {
          VulkanExtensionEmulator.LOGGER.info(
             "[Vulkan Extension Emulator] Left {} emulated feature(s) disabled on device (emulated in software): {}",
-            set4.size(),
-            set4
+            emulatedFeatures.size(),
+            emulatedFeatures
          );
       }
 
-      return set3;
+      return new FeatureSet(
+         featureSet.name(),
+         deviceExtensions,
+         deviceFeatures,
+         featureSet.condition()
+      );
    }
 
    @Inject(
       method = {
-         "createDevice(Ljava/util/Collection;Lcom/mojang/blaze3d/vulkan/VulkanPhysicalDevice;Ljava/util/Set;)Lorg/lwjgl/vulkan/VkDevice;"
+         "createDevice(Lcom/mojang/renderpearl/backend/vulkan/init/FeatureSet;Lcom/mojang/renderpearl/backend/vulkan/VulkanPhysicalDevice;)Lorg/lwjgl/vulkan/VkDevice;"
       },
       at = {@At("RETURN")},
       require = 0
    )
    private static void vulkanextensionemulator$deviceCreated(
-      Collection<String> deviceExtensions,
+      FeatureSet featureSet,
       VulkanPhysicalDevice physical,
-      Set<VulkanFeature> vulkanFeatures,
       CallbackInfoReturnable<VkDevice> cir
    ) {
       if (cir.getReturnValue() != null) {
